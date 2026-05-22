@@ -1,0 +1,79 @@
+version: '3.9'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8000
+    volumes:
+      - ./frontend/src:/app/src
+    depends_on:
+      - backend
+    networks:
+      - skyforge-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://skyforge:skyforge@postgres:5432/skyforge
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=dev-secret-change-in-production
+      - ENVIRONMENT=development
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - skyforge-net
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: skyforge
+      POSTGRES_PASSWORD: skyforge
+      POSTGRES_DB: skyforge
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U skyforge"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - skyforge-net
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - skyforge-net
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  skyforge-net:
+    driver: bridge
