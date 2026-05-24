@@ -4,7 +4,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
+from app.core.database import engine, Base
 from app.api.health import router as health_router
+from app.api.auth import router as auth_router
 
 logger = structlog.get_logger()
 settings = get_settings()
@@ -12,15 +14,19 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("skyforge.startup", version=settings.app_version, env=settings.environment)
+    logger.info("skyforge.startup", version=settings.app_version)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("skyforge.db.ready")
     yield
     logger.info("skyforge.shutdown")
+    await engine.dispose()
 
 
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
-    docs_url="/api/docs" if not settings.is_production else None,
+    docs_url="/api/docs",
     redoc_url=None,
     lifespan=lifespan,
 )
@@ -34,8 +40,4 @@ app.add_middleware(
 )
 
 app.include_router(health_router, prefix="/api", tags=["system"])
-
-
-@app.get("/")
-async def root():
-    return {"service": settings.app_name, "status": "nominal"}
+app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
