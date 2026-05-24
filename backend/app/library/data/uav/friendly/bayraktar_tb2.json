@@ -1,0 +1,83 @@
+{
+  "id": "bayraktar-tb2",
+  "name": "Bayraktar TB2",
+  "nato_designation": null,
+  "country_of_origin": "TR",
+  "operators": ["UA", "TR", "PL", "AZ"],
+  "faction": "FRIENDLY",
+  "category": "UAV",
+  "uav_subtype": "FIXED_WING",
+  "generation": "2010s",
+  "in_service_since": 2014,
+  "performance": {
+    "max_speed_kmh": 222,
+    "cruise_speed_kmh": 130,
+    "max_range_km": 150,
+    "endurance_hrs": 27.0,
+    "max_altitude_m": 8200,
+    "min_altitude_m": 50,
+    "climb_rate_ms": 5.0,
+    "service_ceiling_m": 8200
+  },
+  "propulsion": {
+    "type": "piston",
+    "fuel_capacity_l": 300,
+    "fuel_burn_lph": 20,
+    "motor_count": 1,
+    "propeller_config": "pusher"
+  },
+  "navigation": {
+    "gps_bands": ["L1", "L2"],
+    "has_ins": true,
+    "has_optical_nav": true,
+    "has_terrain_follow": false,
+    "datalink_freq_mhz": 1800,
+    "datalink_range_km": 150,
+    "is_fire_and_forget": false,
+    "has_terminal_seeker": true,
+    "seeker_type": "laser"
+  },
+  "payload": {
+    "max_payload_kg": 55,
+    "warhead_kg": 22,
+    "warhead_type": "MAM-L smart micro munition",
+    "has_eo": true,
+    "has_ir": true,
+    "has_sar": false,
+    "has_sigint": false,
+    "has_lidar": false
+  },
+  "signatures": {
+    "rcs_m2": 0.5,
+    "ir_signature": "LOW",
+    "acoustic_signature": "MEDIUM",
+    "visual_signature": "MEDIUM"
+  },
+  "vulnerability": {
+    "vs_gps_jamming": "LOW",
+    "vs_datalink_jam": "MEDIUM",
+    "vs_sam": "CRITICAL",
+    "vs_aaa": "HIGH",
+    "vs_manpads": "HIGH",
+    "has_flares": false,
+    "has_chaff": false,
+    "has_ecm": false
+  },
+  "sim_params": {
+    "mass_kg": 650,
+    "wingspan_m": 12.0,
+    "length_m": 6.5,
+    "drag_coefficient": 0.025,
+    "lift_coefficient": 1.1,
+    "wing_area_m2": 5.1,
+    "pid_roll":    {"p": 0.7, "i": 0.06, "d": 0.03},
+    "pid_pitch":   {"p": 0.8, "i": 0.08, "d": 0.04},
+    "pid_yaw":     {"p": 0.6, "i": 0.05, "d": 0.02},
+    "pid_altitude":{"p": 1.0, "i": 0.12, "d": 0.09}
+  },
+  "threat_level": "LOW",
+  "description": "Turkish MALE UAV with proven combat record. Carries laser-guided MAM munitions for precision strike. Highly effective against unprotected armor and logistics. Vulnerable to modern air defense — requires SEAD before employment.",
+  "how_to_detect": [],
+  "how_to_counter": [],
+  "tags": ["male", "strike", "isr", "laser-guided", "turkey", "proven-combat"]
+}

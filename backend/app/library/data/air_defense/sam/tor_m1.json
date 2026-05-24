@@ -1,0 +1,59 @@
+{
+  "id": "tor-m1",
+  "name": "Tor-M1",
+  "nato_designation": "SA-15 Gauntlet",
+  "country_of_origin": "RU",
+  "faction": "HOSTILE",
+  "category": "AIR_DEFENSE",
+  "sam_class": "SHORAD",
+  "radar": {
+    "band": "H",
+    "search_range_km": 25,
+    "track_range_km": 20,
+    "max_targets": 48,
+    "min_rcs_m2": 0.1,
+    "rotation_rpm": 20,
+    "elevation_deg": 360
+  },
+  "missile": {
+    "designation": "9M331",
+    "speed_mach": 2.8,
+    "max_range_km": 12,
+    "min_range_km": 1.5,
+    "max_altitude_m": 6000,
+    "min_altitude_m": 10,
+    "warhead_kg": 15,
+    "fuze_type": "proximity",
+    "guidance": "radar_command"
+  },
+  "ready_rounds": 8,
+  "reload_time_min": 18,
+  "reaction_time_sec": 7.4,
+  "crew": 3,
+  "vs_arm": "HIGH",
+  "vs_jamming": "MEDIUM",
+  "vs_low_slow": "LOW",
+  "engagement_probability_curve": {
+    "rcs_0.01_range_5km": 0.45,
+    "rcs_0.05_range_5km": 0.65,
+    "rcs_0.1_range_5km": 0.80,
+    "rcs_0.5_range_5km": 0.92,
+    "rcs_0.5_range_10km": 0.75,
+    "rcs_0.5_range_12km": 0.55
+  },
+  "threat_level": "CRITICAL",
+  "description": "Russian short-range SAM system on tracked chassis. Highly mobile and autonomous. Radar can detect and engage very small UAVs. Standard SHORAD threat for any UAV operation in contested airspace.",
+  "how_to_detect": [
+    "H-band radar emissions detectable via RWR/ELINT",
+    "Large tracked vehicle — visible on EO/SAR imagery",
+    "Radar rotation creates distinctive ELINT signature"
+  ],
+  "how_to_counter": [
+    "NOE flight below radar horizon",
+    "Radar-off periods exploitation",
+    "Anti-radiation missiles (ARM)",
+    "Swarm saturation tactics",
+    "EW jamming of fire control radar"
+  ],
+  "tags": ["shorad", "mobile", "tracked", "russia", "anti-drone"]
+}

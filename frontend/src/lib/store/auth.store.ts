@@ -26,24 +26,17 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      user:         null,
-      accessToken:  null,
-      refreshToken: null,
-      isAuth:       false,
-
+      user: null, accessToken: null, refreshToken: null, isAuth: false,
       setAuth: (user, access, refresh) =>
         set({ user, accessToken: access, refreshToken: refresh, isAuth: true }),
-
       clearAuth: () =>
         set({ user: null, accessToken: null, refreshToken: null, isAuth: false }),
     }),
     {
-      name:    "skyforge-auth",
+      name: "skyforge-auth",
       partialize: (s) => ({
-        user:         s.user,
-        accessToken:  s.accessToken,
-        refreshToken: s.refreshToken,
-        isAuth:       s.isAuth,
+        user: s.user, accessToken: s.accessToken,
+        refreshToken: s.refreshToken, isAuth: s.isAuth,
       }),
     }
   )

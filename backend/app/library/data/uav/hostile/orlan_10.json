@@ -1,0 +1,93 @@
+{
+  "id": "orlan-10",
+  "name": "Orlan-10",
+  "nato_designation": null,
+  "country_of_origin": "RU",
+  "operators": ["RU"],
+  "faction": "HOSTILE",
+  "category": "UAV",
+  "uav_subtype": "FIXED_WING",
+  "generation": "2010s",
+  "in_service_since": 2010,
+  "performance": {
+    "max_speed_kmh": 150,
+    "cruise_speed_kmh": 90,
+    "max_range_km": 120,
+    "endurance_hrs": 16.0,
+    "max_altitude_m": 5000,
+    "min_altitude_m": 100,
+    "climb_rate_ms": 4.0,
+    "service_ceiling_m": 5000
+  },
+  "propulsion": {
+    "type": "piston",
+    "fuel_capacity_l": 5.9,
+    "fuel_burn_lph": 1.5,
+    "motor_count": 1,
+    "propeller_config": "pusher"
+  },
+  "navigation": {
+    "gps_bands": ["L1"],
+    "has_ins": true,
+    "has_optical_nav": false,
+    "has_terrain_follow": false,
+    "datalink_freq_mhz": 1200,
+    "datalink_range_km": 120,
+    "is_fire_and_forget": false,
+    "has_terminal_seeker": false,
+    "seeker_type": null
+  },
+  "payload": {
+    "max_payload_kg": 5,
+    "warhead_kg": null,
+    "warhead_type": null,
+    "has_eo": true,
+    "has_ir": true,
+    "has_sar": false,
+    "has_sigint": true,
+    "has_lidar": false
+  },
+  "signatures": {
+    "rcs_m2": 0.08,
+    "ir_signature": "LOW",
+    "acoustic_signature": "MEDIUM",
+    "visual_signature": "LOW"
+  },
+  "vulnerability": {
+    "vs_gps_jamming": "HIGH",
+    "vs_datalink_jam": "HIGH",
+    "vs_sam": "HIGH",
+    "vs_aaa": "HIGH",
+    "vs_manpads": "MEDIUM",
+    "has_flares": false,
+    "has_chaff": false,
+    "has_ecm": false
+  },
+  "sim_params": {
+    "mass_kg": 18,
+    "wingspan_m": 3.1,
+    "length_m": 1.8,
+    "drag_coefficient": 0.032,
+    "lift_coefficient": 0.85,
+    "wing_area_m2": 0.95,
+    "pid_roll":    {"p": 0.8, "i": 0.07, "d": 0.03},
+    "pid_pitch":   {"p": 0.9, "i": 0.09, "d": 0.04},
+    "pid_yaw":     {"p": 0.6, "i": 0.04, "d": 0.02},
+    "pid_altitude":{"p": 0.9, "i": 0.10, "d": 0.07}
+  },
+  "threat_level": "MEDIUM",
+  "description": "Russian tactical ISR UAV widely used for artillery spotting and target designation. Primary threat is reconnaissance and SIGINT collection. GPS and datalink jamming are highly effective countermeasures.",
+  "how_to_detect": [
+    "Piston engine acoustic signature at medium altitude",
+    "Datalink emissions on 1.2 GHz band",
+    "Radar detectable at close range",
+    "Visual spotting in daylight at low altitude"
+  ],
+  "how_to_counter": [
+    "GPS jamming — L1 only navigation",
+    "Datalink jamming to break operator link",
+    "MANPADS effective at lower altitudes",
+    "Radio direction finding to locate ground station"
+  ],
+  "tags": ["isr", "recon", "artillery-spotter", "sigint", "russia"]
+}

@@ -1,0 +1,55 @@
+{
+  "id": "buk-m2",
+  "name": "Buk-M2",
+  "nato_designation": "SA-17 Grizzly",
+  "country_of_origin": "RU",
+  "faction": "HOSTILE",
+  "category": "AIR_DEFENSE",
+  "sam_class": "MRSAM",
+  "radar": {
+    "band": "G",
+    "search_range_km": 160,
+    "track_range_km": 45,
+    "max_targets": 24,
+    "min_rcs_m2": 0.05,
+    "rotation_rpm": 6,
+    "elevation_deg": 360
+  },
+  "missile": {
+    "designation": "9M317",
+    "speed_mach": 4.0,
+    "max_range_km": 45,
+    "min_range_km": 3.0,
+    "max_altitude_m": 25000,
+    "min_altitude_m": 15,
+    "warhead_kg": 62,
+    "fuze_type": "proximity",
+    "guidance": "semi_active_radar"
+  },
+  "ready_rounds": 16,
+  "reload_time_min": 25,
+  "reaction_time_sec": 22,
+  "crew": 4,
+  "vs_arm": "MEDIUM",
+  "vs_jamming": "MEDIUM",
+  "vs_low_slow": "MEDIUM",
+  "engagement_probability_curve": {
+    "rcs_0.5_range_20km": 0.88,
+    "rcs_0.5_range_35km": 0.72,
+    "rcs_0.5_range_45km": 0.50
+  },
+  "threat_level": "CRITICAL",
+  "description": "Russian medium-range SAM system. Primary air defense threat for MALE-class UAVs. Can engage targets at high altitude with high kill probability. Responsible for downing of Bayraktar TB2 aircraft.",
+  "how_to_detect": [
+    "G-band surveillance radar emissions",
+    "Distinctive vehicle convoy (TEL + radar + command)",
+    "Engagement radar lock-on warning via RWR"
+  ],
+  "how_to_counter": [
+    "Stay below radar horizon using terrain masking",
+    "Standoff weapons employment beyond 45km",
+    "SEAD strikes on radar vehicles",
+    "Jamming of engagement radar"
+  ],
+  "tags": ["mrsam", "mobile", "tracked", "russia", "high-altitude"]
+}

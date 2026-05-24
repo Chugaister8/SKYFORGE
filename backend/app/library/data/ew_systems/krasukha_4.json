@@ -1,0 +1,30 @@
+{
+  "id": "krasukha-4",
+  "name": "Krasukha-4",
+  "country_of_origin": "RU",
+  "faction": "HOSTILE",
+  "category": "EW_SYSTEM",
+  "ew_type": "JAMMER",
+  "freq_bands_mhz": [[8000, 18000], [1200, 1400]],
+  "jamming_power_kw": 10,
+  "effective_range_km": 150,
+  "targets": ["RADAR", "AWACS", "SATELLITE"],
+  "platform": "wheeled",
+  "gps_denial_radius_km": 0,
+  "datalink_denial_radius_km": 0,
+  "jamming_effectiveness": 0.85,
+  "threat_level": "HIGH",
+  "description": "Russian broadband multifunctional jamming system targeting airborne radars and AWACS. Operates in X and Ku bands creating broad electronic denial zones affecting UAV datalinks and surveillance systems.",
+  "how_to_detect": [
+    "Distinctive high-power RF emissions on X/Ku band",
+    "Large vehicle signature on satellite imagery",
+    "ELINT detection of jamming patterns"
+  ],
+  "how_to_counter": [
+    "ECCM-equipped datalinks with frequency hopping",
+    "Autonomous flight modes with pre-programmed waypoints",
+    "Anti-radiation strike on emission source",
+    "Operate outside effective jamming range"
+  ],
+  "tags": ["strategic", "broadband", "radar-jamming", "russia"]
+}

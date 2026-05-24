@@ -1,0 +1,93 @@
+{
+  "id": "shahed-136",
+  "name": "Shahed-136 / Geran-2",
+  "nato_designation": null,
+  "country_of_origin": "IR",
+  "operators": ["RU", "IR"],
+  "faction": "HOSTILE",
+  "category": "UAV",
+  "uav_subtype": "LOITERING",
+  "generation": "2020s",
+  "in_service_since": 2021,
+  "performance": {
+    "max_speed_kmh": 185,
+    "cruise_speed_kmh": 160,
+    "max_range_km": 2500,
+    "endurance_hrs": 10.0,
+    "max_altitude_m": 3000,
+    "min_altitude_m": 60,
+    "climb_rate_ms": 3.0,
+    "service_ceiling_m": 4000
+  },
+  "propulsion": {
+    "type": "piston",
+    "fuel_capacity_l": 50,
+    "fuel_burn_lph": 8.5,
+    "motor_count": 1,
+    "propeller_config": "pusher"
+  },
+  "navigation": {
+    "gps_bands": ["L1"],
+    "has_ins": true,
+    "has_optical_nav": false,
+    "has_terrain_follow": false,
+    "datalink_freq_mhz": null,
+    "datalink_range_km": null,
+    "is_fire_and_forget": true,
+    "has_terminal_seeker": false,
+    "seeker_type": null
+  },
+  "payload": {
+    "max_payload_kg": 50,
+    "warhead_kg": 50,
+    "warhead_type": "HE",
+    "has_eo": false,
+    "has_ir": false,
+    "has_sar": false,
+    "has_sigint": false,
+    "has_lidar": false
+  },
+  "signatures": {
+    "rcs_m2": 0.05,
+    "ir_signature": "LOW",
+    "acoustic_signature": "HIGH",
+    "visual_signature": "LOW"
+  },
+  "vulnerability": {
+    "vs_gps_jamming": "HIGH",
+    "vs_datalink_jam": "LOW",
+    "vs_sam": "MEDIUM",
+    "vs_aaa": "MEDIUM",
+    "vs_manpads": "LOW",
+    "has_flares": false,
+    "has_chaff": false,
+    "has_ecm": false
+  },
+  "sim_params": {
+    "mass_kg": 200,
+    "wingspan_m": 2.5,
+    "length_m": 3.5,
+    "drag_coefficient": 0.035,
+    "lift_coefficient": 0.8,
+    "wing_area_m2": 0.48,
+    "pid_roll":    {"p": 0.9, "i": 0.08, "d": 0.04},
+    "pid_pitch":   {"p": 1.1, "i": 0.10, "d": 0.05},
+    "pid_yaw":     {"p": 0.7, "i": 0.05, "d": 0.02},
+    "pid_altitude":{"p": 1.0, "i": 0.12, "d": 0.08}
+  },
+  "threat_level": "HIGH",
+  "description": "Iranian-designed loitering munition widely used by Russia against Ukrainian infrastructure. Navigates via pre-programmed GPS waypoints with INS backup. Low RCS makes radar detection difficult; distinctive piston engine sound is primary acoustic signature.",
+  "how_to_detect": [
+    "Acoustic detection — distinctive moped engine sound",
+    "Radar: low RCS but visible at close range on modern AESA",
+    "EO/IR cameras at night (engine heat)",
+    "SIGINT: no datalink emission (fire-and-forget)"
+  ],
+  "how_to_counter": [
+    "GPS jamming highly effective (L1 only navigation)",
+    "AAA effective at low altitude engagement",
+    "Small arms fire feasible at very close range",
+    "Electronic warfare — navigation denial"
+  ],
+  "tags": ["loitering", "kamikaze", "infrastructure", "swarm", "iran", "russia"]
+}

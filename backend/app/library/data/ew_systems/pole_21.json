@@ -1,0 +1,30 @@
+{
+  "id": "pole-21",
+  "name": "Pole-21 / R-340RP",
+  "country_of_origin": "RU",
+  "faction": "HOSTILE",
+  "category": "EW_SYSTEM",
+  "ew_type": "JAMMER",
+  "freq_bands_mhz": [[1176, 1176], [1227, 1227], [1575, 1575]],
+  "jamming_power_kw": 2,
+  "effective_range_km": 80,
+  "targets": ["GPS"],
+  "platform": "static",
+  "gps_denial_radius_km": 80,
+  "datalink_denial_radius_km": 0,
+  "jamming_effectiveness": 0.92,
+  "threat_level": "HIGH",
+  "description": "Russian GPS denial system jamming all GPS frequencies (L1/L2/L5). Deployed as part of integrated air defense networks creating large GPS-denied zones forcing UAVs to rely on INS or alternative navigation.",
+  "how_to_detect": [
+    "GPS signal degradation and drift across platforms",
+    "L-band emissions detectable via specialized receivers",
+    "Systematic navigation errors"
+  ],
+  "how_to_counter": [
+    "Multi-band GNSS receivers (GLONASS/Galileo backup)",
+    "INS with tight coupling",
+    "Visual navigation and optical flow",
+    "Pre-programmed INS-only flight modes"
+  ],
+  "tags": ["gps-denial", "l-band", "navigation", "russia", "area-denial"]
+}

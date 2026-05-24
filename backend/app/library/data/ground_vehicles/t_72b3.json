@@ -1,0 +1,38 @@
+{
+  "id": "t-72b3",
+  "name": "T-72B3",
+  "nato_designation": null,
+  "country_of_origin": "RU",
+  "faction": "HOSTILE",
+  "category": "GROUND_VEHICLE",
+  "vehicle_type": "ARMOR",
+  "mass_tonnes": 46,
+  "length_m": 9.53,
+  "width_m": 3.46,
+  "height_m": 2.19,
+  "max_speed_kmh": 65,
+  "crew": 3,
+  "main_gun": "2A46M-5",
+  "caliber_mm": 125,
+  "secondary": ["PKT 7.62mm coaxial", "NSVT 12.7mm AA"],
+  "armor_type": "Kontakt-5 ERA + steel composite",
+  "vs_atgm": "MEDIUM",
+  "vs_uav": "LOW",
+  "ir_signature": "HIGH",
+  "acoustic_signature": "HIGH",
+  "threat_level": "HIGH",
+  "description": "Modernized Soviet-era MBT. Most common Russian tank in active service. Kontakt-5 ERA provides protection against older ATGMs. Hot engine signature makes it highly visible to IR sensors. Limited organic anti-UAV capability.",
+  "how_to_detect": [
+    "Strong IR signature from engine and exhaust",
+    "Acoustic detection of diesel engine",
+    "Visual spotting — large metallic vehicle",
+    "SAR radar — large metallic RCS"
+  ],
+  "how_to_counter": [
+    "Top-attack munitions target thin top armor",
+    "Loitering munitions most effective approach",
+    "Thermal imaging for night targeting",
+    "Engine deck targeting for maximum effect"
+  ],
+  "tags": ["mbt", "armor", "tracked", "russia", "era"]
+}
