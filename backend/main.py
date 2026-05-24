@@ -15,6 +15,8 @@ from app.api.ew         import router as ew_router
 from app.api.sam        import router as sam_router
 from app.api.weather    import router as weather_router
 from app.api.missions   import router as missions_router
+from app.api.swarm      import router as swarm_router
+from app.api.training   import router as training_router
 from app.simulation.telemetry_broadcaster import start_telemetry_broadcaster
 
 logger=structlog.get_logger(); settings=get_settings()
@@ -31,13 +33,15 @@ async def lifespan(app:FastAPI):
 
 app=FastAPI(title=settings.app_name,version=settings.app_version,docs_url="/api/docs",redoc_url=None,lifespan=lifespan)
 app.add_middleware(CORSMiddleware,allow_origins=["http://localhost:3000"],allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
-app.include_router(health_router,  prefix="/api",            tags=["system"])
-app.include_router(auth_router,    prefix="/api/auth",       tags=["auth"])
-app.include_router(fleet_router,   prefix="/api/fleet",      tags=["fleet"])
-app.include_router(library_router, prefix="/api/library",    tags=["library"])
-app.include_router(sim_router,     prefix="/api/sim",        tags=["simulation"])
-app.include_router(ew_router,      prefix="/api/ew",         tags=["ew"])
-app.include_router(sam_router,     prefix="/api/sam",        tags=["sam"])
-app.include_router(weather_router, prefix="/api/weather",    tags=["weather"])
-app.include_router(missions_router,prefix="/api/missions",   tags=["missions"])
-app.include_router(ws_router,                                tags=["websocket"])
+app.include_router(health_router,  prefix="/api",           tags=["system"])
+app.include_router(auth_router,    prefix="/api/auth",      tags=["auth"])
+app.include_router(fleet_router,   prefix="/api/fleet",     tags=["fleet"])
+app.include_router(library_router, prefix="/api/library",   tags=["library"])
+app.include_router(sim_router,     prefix="/api/sim",       tags=["simulation"])
+app.include_router(ew_router,      prefix="/api/ew",        tags=["ew"])
+app.include_router(sam_router,     prefix="/api/sam",       tags=["sam"])
+app.include_router(weather_router, prefix="/api/weather",   tags=["weather"])
+app.include_router(missions_router,prefix="/api/missions",  tags=["missions"])
+app.include_router(swarm_router,   prefix="/api/swarm",     tags=["swarm"])
+app.include_router(training_router,prefix="/api/training",  tags=["training"])
+app.include_router(ws_router,                               tags=["websocket"])
