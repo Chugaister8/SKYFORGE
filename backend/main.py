@@ -11,6 +11,7 @@ from app.api.fleet      import router as fleet_router
 from app.api.library    import router as library_router
 from app.api.ws         import router as ws_router
 from app.api.simulation import router as sim_router
+from app.api.ew         import router as ew_router
 from app.simulation.telemetry_broadcaster import start_telemetry_broadcaster
 
 logger=structlog.get_logger(); settings=get_settings()
@@ -32,4 +33,5 @@ app.include_router(auth_router,    prefix="/api/auth",    tags=["auth"])
 app.include_router(fleet_router,   prefix="/api/fleet",   tags=["fleet"])
 app.include_router(library_router, prefix="/api/library", tags=["library"])
 app.include_router(sim_router,     prefix="/api/sim",     tags=["simulation"])
+app.include_router(ew_router,      prefix="/api/ew",      tags=["ew"])
 app.include_router(ws_router,                             tags=["websocket"])
