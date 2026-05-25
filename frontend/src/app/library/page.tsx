@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
-import { useLibrary, useLibraryEntry, LibraryMeta, Faction, Category, ThreatLevel } from "@/lib/hooks/useLibrary";
+import { useLibrary, useLibraryUnit, useLibraryStats } from "@/lib/hooks/useLibrary";
+import type { LibraryUnit } from "@/lib/hooks/useLibrary";
 import { Search, ChevronRight, Shield, Radio, Truck, Plane, Crosshair } from "lucide-react";
 import { clsx } from "clsx";
 

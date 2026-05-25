@@ -6,7 +6,8 @@ import { WaypointList }      from "@/components/mission/WaypointList";
 import { MissionToolbar }    from "@/components/mission/MissionToolbar";
 import { ScenarioLoader }    from "@/components/mission/ScenarioLoader";
 import { clsx } from "clsx";
-import { Save, FolderOpen, Trash2, CheckCircle, Loader2 } from "lucide-react";
+import { Save, FolderOpen, Trash2, CheckCircle, Loader2, WifiOff } from "lucide-react";
+import { SkeletonList } from "@/components/ui/Skeleton";
 import type { Waypoint, ThreatSite } from "@/lib/hooks/useMission";
 
 type Tool = "select"|"waypoint"|"sam"|"ew";
@@ -97,7 +98,7 @@ export default function MissionsPage() {
             {showLoad && (
               <div className="bg-bg-base border border-border-dim rounded overflow-hidden max-h-48 overflow-y-auto">
                 {savedLoading
-                  ? <div className="p-3 text-center"><Loader2 className="w-4 h-4 animate-spin mx-auto text-text-dim"/></div>
+                  ? <SkeletonList count={3} />
                   : savedMissions.length===0
                   ? <p className="p-3 font-mono text-2xs text-text-dim text-center">No saved missions</p>
                   : savedMissions.map(m => (

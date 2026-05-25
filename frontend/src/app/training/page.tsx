@@ -6,6 +6,7 @@ import { CourseDetail }    from "@/components/training/CourseDetail";
 import { CertificateCard } from "@/components/training/CertificateCard";
 import { clsx } from "clsx";
 import { GraduationCap, Award, Trophy, Filter } from "lucide-react";
+import { SkeletonCard } from "@/components/ui/Skeleton";
 
 const CATS=["ALL","PILOT","ENGINEER","COMMANDER"] as const;
 type Tab="courses"|"certificates"|"leaderboard";
@@ -58,7 +59,7 @@ export default function TrainingPage(){
           cat===c?"border-border-active bg-cyan-subtle text-cyan-DEFAULT":"border-border-dim text-text-secondary hover:text-text-primary")}>{c}</button>))}
       </div>
       {cL?(<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-        {[1,2,3,4,5,6].map(i=><div key={i} className="h-40 bg-bg-surface rounded animate-pulse"/>)}
+        {[1,2,3,4,5,6].map(i=><SkeletonCard key={i}/>)}
       </div>):(<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {courses.map(course=>(<CourseCard key={course.id} course={course} completed={certs.some(c=>c.course_id===course.id)} onClick={()=>setSelected(course.id)}/>))}
       </div>)}

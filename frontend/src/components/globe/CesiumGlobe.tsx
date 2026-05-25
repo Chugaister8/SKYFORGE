@@ -45,8 +45,14 @@ export function CesiumGlobe({ waypoints, sites, uavPosition, mode, onMapClick, f
         if(cancelled) return;
 
         // Set token (free Ion token for basic terrain)
-        C.Ion.defaultAccessToken = process.env.NEXT_PUBLIC_CESIUM_TOKEN ??
-          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUxNy1mMWZiLTQzYjYtYTQ0OS1kMWFjYmFmNTlhNjYiLCJpZCI6MjU5Mzc3LCJpYXQiOjE2OTI2MzE4MDl9.sTCiSFNfLfAtCHFWHzqx_0Kwy9cpGLJR3yz7OeEFnag";
+        // Token must be set via NEXT_PUBLIC_CESIUM_TOKEN env variable
+        // Get a free token at https://ion.cesium.com/tokens
+        const cesiumToken = process.env.NEXT_PUBLIC_CESIUM_TOKEN ?? "";
+        if (!cesiumToken) {
+          setError("Cesium token not configured. Set NEXT_PUBLIC_CESIUM_TOKEN env variable.");
+          return;
+        }
+        C.Ion.defaultAccessToken = cesiumToken;
 
         setCesiumLib(C);
         setLoaded(true);

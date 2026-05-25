@@ -7,6 +7,7 @@ import { EventTimeline }  from "@/components/aar/EventTimeline";
 import { ReplayControls } from "@/components/aar/ReplayControls";
 import { AARMap }         from "@/components/aar/AARMap";
 import { ErrorBoundary }  from "@/components/ui/ErrorBoundary";
+import { SkeletonCard }   from "@/components/ui/Skeleton";
 import { clsx } from "clsx";
 import { FileText, BarChart2, FolderOpen, Save, CheckCircle, Loader2 } from "lucide-react";
 
@@ -84,10 +85,7 @@ export default function AARPage() {
 
         <div className="flex-1 overflow-y-auto p-3">
           {state.loading ? (
-            <div className="flex items-center justify-center h-32 gap-2">
-              <Loader2 className="w-4 h-4 animate-spin text-text-dim"/>
-              <p className="font-mono text-xs text-text-dim">Loading flight log…</p>
-            </div>
+            <SkeletonCard className="mx-0" />
           ) : state.metrics ? (
             <>
               <ScoreCard metrics={state.metrics}/>

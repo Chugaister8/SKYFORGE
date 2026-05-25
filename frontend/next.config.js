@@ -1,29 +1,29 @@
 /** @type {import('next').NextConfig} */
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
 const nextConfig = {
-  reactStrictMode: true,
-  async rewrites() {
-    return [
-      {
-        source: "/api/:path*",
-        destination: `${API_URL}/api/:path*`,
-      },
-      {
-        source: "/ws/:path*",
-        destination: `${API_URL}/ws/:path*`,
-      },
-    ];
+  // Allow Cesium static assets
+  transpilePackages: [],
+
+  // Expose env vars to client
+  env: {
+    NEXT_PUBLIC_CESIUM_TOKEN: process.env.NEXT_PUBLIC_CESIUM_TOKEN ?? "",
   },
-  async headers() {
+
+  // Webpack: handle Cesium worker files
+  webpack(config, { isServer }) {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false, path: false, url: false,
+      };
+    }
+    return config;
+  },
+
+  // Rewrites: proxy /api to backend (avoids CORS in dev)
+  async rewrites() {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
     return [
-      {
-        source: "/(.*)",
-        headers: [
-          { key: "X-Frame-Options", value: "DENY" },
-          { key: "X-Content-Type-Options", value: "nosniff" },
-        ],
-      },
+      { source: "/api/:path*", destination: `${backendUrl}/api/:path*` },
     ];
   },
 };
