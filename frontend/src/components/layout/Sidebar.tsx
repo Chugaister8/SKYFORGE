@@ -22,6 +22,7 @@ const NAV_ITEMS = [
     items: [
       { label: "Training",      href: "/training",  icon: GraduationCap },
       { label: "After Action",  href: "/aar",       icon: FileText },
+      { label: "Multiplayer",    href: "/multiplayer",icon: Users },
       { label: "Unit Library",  href: "/library",   icon: BookOpen },
     ],
   },
