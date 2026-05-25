@@ -37,7 +37,15 @@ export function useLibrary(
 
   return useQuery<PagedLibrary>({
     queryKey: ["library", category, faction, search, limit, offset],
-    queryFn:  () => api.get(`/library/?${params}`, token ?? undefined),
+    queryFn:  async () => {
+      const res = await api.get<any>(`/library/?${params}`, token ?? undefined);
+      // Handle both {units,...} and legacy array
+      if (Array.isArray(res)) {
+        return { units: res, total: res.length, limit, offset, has_more: false } as PagedLibrary;
+      }
+      // Normalize: backend returns 'units' array
+      return res as PagedLibrary;
+    },
     enabled:  !!token,
     staleTime: 300_000, // 5 min — library is stable
   });

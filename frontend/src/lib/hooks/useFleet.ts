@@ -51,9 +51,16 @@ export function useFleet(limit = 50, statusFilter?: string) {
     : `/fleet/?limit=${limit}`;
 
   return useQuery<PagedFleet>({
-    queryKey: ["fleet", limit, statusFilter],
-    queryFn:  () => api.get(path, token ?? undefined),
-    enabled:  !!token,
+    queryKey:  ["fleet", limit, statusFilter],
+    queryFn:   async () => {
+      const res = await api.get<any>(path, token ?? undefined);
+      // Handle both paginated {items,total,...} and legacy array
+      if (Array.isArray(res)) {
+        return { items: res, total: res.length, limit, offset: 0, has_more: false };
+      }
+      return res as PagedFleet;
+    },
+    enabled:   !!token,
     staleTime: 10_000,
   });
 }

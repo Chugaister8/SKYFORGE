@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSimulator } from "@/lib/hooks/useSimulator";
 import { useSavedMissions } from "@/lib/hooks/useMission";
@@ -44,6 +44,16 @@ export default function SimulatorPage() {
   const [savingAAR,    setSavingAAR]    = useState(false);
   const [aarSaved,     setAARSaved]     = useState(false);
   const [autopilot,    setAutopilot]    = useState(false);
+  const [injectedFailure, setInjectedFailure] = useState<any>(null);
+
+  // Read injected failure from Engineer page
+  useEffect(() => {
+    const raw = sessionStorage.getItem("injected_failure");
+    if (raw) {
+      try { setInjectedFailure(JSON.parse(raw)); } catch {}
+      sessionStorage.removeItem("injected_failure");
+    }
+  }, []);
 
   const { data: missionsData } = useSavedMissions();
   const savedMissions = missionsData?.data ?? [];
@@ -75,6 +85,25 @@ export default function SimulatorPage() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-bg-base">
+      {/* Injected failure banner */}
+      {injectedFailure && (
+        <div className="fixed top-0 inset-x-0 z-50 bg-threat-high/90 border-b border-threat-high px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-white" strokeWidth={1.5}/>
+            <span className="font-mono text-xs text-white font-medium">
+              FAILURE INJECTED: {injectedFailure.name}
+            </span>
+            {!injectedFailure.can_continue && (
+              <span className="font-mono text-2xs text-white bg-white/20 px-2 py-0.5 rounded">
+                LAND NOW
+              </span>
+            )}
+          </div>
+          <button onClick={() => setInjectedFailure(null)} className="font-mono text-2xs text-white/70 hover:text-white">
+            dismiss ×
+          </button>
+        </div>
+      )}
 
       {/* Left panel */}
       <div className="w-64 shrink-0 flex flex-col border-r border-border-dim bg-bg-surface overflow-y-auto">
