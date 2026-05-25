@@ -1,10 +1,18 @@
-import asyncio, structlog
+import asyncio
+import structlog
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+
 from app.core.config import get_settings
 from app.core.database import engine, Base
 from app.core.redis_client import get_redis, close_redis
+from app.core.rate_limiter import limiter, rate_limit_exceeded_handler
+
 from app.api.health     import router as health_router
 from app.api.auth       import router as auth_router
 from app.api.fleet      import router as fleet_router
@@ -22,20 +30,61 @@ from app.api.engineer   import router as engineer_router
 from app.api.rooms      import router as rooms_router
 from app.simulation.telemetry_broadcaster import start_telemetry_broadcaster
 
-logger=structlog.get_logger(); settings=get_settings()
+logger   = structlog.get_logger()
+settings = get_settings()
+
 
 @asynccontextmanager
-async def lifespan(app:FastAPI):
-    logger.info("skyforge.startup",version=settings.app_version)
-    async with engine.begin() as conn: await conn.run_sync(Base.metadata.create_all)
+async def lifespan(app: FastAPI):
+    logger.info("skyforge.startup", version=settings.app_version, env=settings.environment)
+    async with engine.begin() as conn:
+        # create_all only for dev; production uses alembic migrations
+        if not settings.is_production:
+            await conn.run_sync(Base.metadata.create_all)
     await get_redis()
-    from app.library.loader import load_library; load_library()
-    broadcaster=asyncio.create_task(start_telemetry_broadcaster(interval=1.0))
+    from app.library.loader import load_library
+    load_library()
+    broadcaster = asyncio.create_task(start_telemetry_broadcaster(interval=1.0))
+    logger.info("skyforge.ready")
     yield
-    broadcaster.cancel(); await close_redis(); await engine.dispose()
+    broadcaster.cancel()
+    await close_redis()
+    await engine.dispose()
+    logger.info("skyforge.shutdown")
 
-app=FastAPI(title=settings.app_name,version=settings.app_version,docs_url="/api/docs",redoc_url=None,lifespan=lifespan)
-app.add_middleware(CORSMiddleware,allow_origins=["http://localhost:3000"],allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
+
+app = FastAPI(
+    title       = settings.app_name,
+    version     = settings.app_version,
+    docs_url    = "/api/docs" if not settings.is_production else None,
+    redoc_url   = None,
+    lifespan    = lifespan,
+)
+
+# ── Rate limiting ────────────────────────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+# ── CORS — env-aware ─────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins     = settings.cors_origins,
+    allow_credentials = True,
+    allow_methods     = ["*"],
+    allow_headers     = ["*"],
+)
+
+# ── Global error handler ─────────────────────────────────────────
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error("unhandled_exception", path=request.url.path, error=str(exc), exc_info=exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
+
+# ── Routers ──────────────────────────────────────────────────────
 app.include_router(health_router,    prefix="/api",            tags=["system"])
 app.include_router(auth_router,      prefix="/api/auth",       tags=["auth"])
 app.include_router(fleet_router,     prefix="/api/fleet",      tags=["fleet"])

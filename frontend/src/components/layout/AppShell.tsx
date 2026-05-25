@@ -2,31 +2,39 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store/auth.store";
-import { Topbar }  from "./Topbar";
-import { Sidebar } from "./Sidebar";
+import { Sidebar }  from "./Sidebar";
+import { Topbar }   from "./Topbar";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { isAuth } = useAuthStore();
   const router = useRouter();
+  const { user, accessToken, isExpired, refreshAuth } = useAuthStore();
 
   useEffect(() => {
-    if (!isAuth) router.replace("/login");
-  }, [isAuth, router]);
+    if (!accessToken || !user) {
+      router.replace("/login");
+      return;
+    }
+    // Proactively refresh if token expired
+    if (isExpired()) {
+      refreshAuth().then(ok => {
+        if (!ok) router.replace("/login");
+      });
+    }
+  }, [accessToken, user]);
 
-  if (!isAuth) {
-    return (
-      <div className="flex h-screen w-screen items-center justify-center bg-bg-base">
-        <div className="font-mono text-xs text-text-dim animate-pulse">AUTHENTICATING...</div>
-      </div>
-    );
-  }
+  if (!user || !accessToken) return null;
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-bg-base">
-      <Topbar />
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
-        <main className="flex-1 overflow-auto bg-bg-base">{children}</main>
+    <div className="flex h-screen bg-bg-base overflow-hidden">
+      <Sidebar />
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        <Topbar />
+        <main className="flex-1 overflow-hidden">
+          <ErrorBoundary context="page">
+            {children}
+          </ErrorBoundary>
+        </main>
       </div>
     </div>
   );

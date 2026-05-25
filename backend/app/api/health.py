@@ -1,27 +1,51 @@
+import time
+import structlog
 from fastapi import APIRouter
-from pydantic import BaseModel
-from datetime import datetime, timezone
+from fastapi.responses import JSONResponse
 
+logger = structlog.get_logger()
 router = APIRouter()
+_start_time = time.time()
 
 
-class HealthResponse(BaseModel):
-    status: str
-    service: str
-    version: str
-    timestamp: str
-    environment: str
+@router.get("/health")
+async def health():
+    """Shallow health check — fast, no DB/Redis queries."""
+    return {"status": "ok", "uptime_s": round(time.time() - _start_time, 1)}
 
 
-@router.get("/health", response_model=HealthResponse)
-async def health_check() -> HealthResponse:
-    from app.core.config import get_settings
-    settings = get_settings()
+@router.get("/health/deep")
+async def deep_health():
+    """Deep health check — verifies DB and Redis connectivity."""
+    checks: dict[str, dict] = {}
+    overall = True
 
-    return HealthResponse(
-        status="nominal",
-        service=settings.app_name,
-        version=settings.app_version,
-        timestamp=datetime.now(timezone.utc).isoformat(),
-        environment=settings.environment,
+    # Database
+    try:
+        from app.core.database import engine
+        async with engine.connect() as conn:
+            await conn.execute(__import__("sqlalchemy").text("SELECT 1"))
+        checks["database"] = {"status": "ok"}
+    except Exception as e:
+        checks["database"] = {"status": "error", "detail": str(e)}
+        overall = False
+
+    # Redis
+    try:
+        from app.core.redis_client import get_redis
+        redis = await get_redis()
+        await redis.ping()
+        checks["redis"] = {"status": "ok"}
+    except Exception as e:
+        checks["redis"] = {"status": "error", "detail": str(e)}
+        overall = False
+
+    status_code = 200 if overall else 503
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status":   "ok" if overall else "degraded",
+            "checks":   checks,
+            "uptime_s": round(time.time() - _start_time, 1),
+        },
     )

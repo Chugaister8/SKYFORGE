@@ -1,118 +1,141 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Shield } from "lucide-react";
-import { clsx } from "clsx";
-import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store/auth.store";
-import { APP_NAME } from "@/lib/constants";
+import { api } from "@/lib/api";
+import { clsx } from "clsx";
+import { Eye, EyeOff, Loader2, AlertCircle } from "lucide-react";
+
+interface AuthResponse {
+  tokens: { access_token:string; refresh_token:string; expires_in:number };
+  user:   { id:string; username:string; email:string; role:string; status:string };
+}
 
 export default function LoginPage() {
-  const router  = useRouter();
-  const setAuth = useAuthStore((s) => s.setAuth);
-  const [mode,     setMode]     = useState<"login" | "register">("login");
-  const [email,    setEmail]    = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [role,     setRole]     = useState("PILOT");
-  const [error,    setError]    = useState<string | null>(null);
-  const [loading,  setLoading]  = useState(false);
-  const ROLES = ["PILOT", "ENGINEER", "COMMANDER", "INSTRUCTOR"];
+  const router   = useRouter();
+  const setAuth  = useAuthStore(s => s.setAuth);
 
-  async function handleSubmit() {
-    setError(null);
-    setLoading(true);
+  const [mode,     setMode]     = useState<"login"|"register">("login");
+  const [username, setUsername] = useState("");
+  const [email,    setEmail]    = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw,   setShowPw]   = useState(false);
+  const [loading,  setLoading]  = useState(false);
+  const [error,    setError]    = useState("");
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(""); setLoading(true);
     try {
-      if (mode === "login") {
-        const res = await api.post<{ tokens: { access_token: string; refresh_token: string }; user: any }>(
-          "/auth/login", { email, password }
-        );
-        setAuth(res.user, res.tokens.access_token, res.tokens.refresh_token);
+      let res: AuthResponse;
+      if (mode === "register") {
+        res = await api.post<AuthResponse>("/auth/register", { username, email, password });
       } else {
-        const res = await api.post<{ tokens: { access_token: string; refresh_token: string }; user: any }>(
-          "/auth/register", { email, username, password, role }
-        );
-        setAuth(res.user, res.tokens.access_token, res.tokens.refresh_token);
+        res = await api.post<AuthResponse>("/auth/login", { username, password });
       }
+      setAuth(
+        res.user,
+        res.tokens.access_token,
+        res.tokens.refresh_token,
+        res.tokens.expires_in,
+      );
       router.push("/dashboard");
-    } catch (e: any) {
-      setError(e.message ?? "Authentication failed");
+    } catch (err: any) {
+      setError(err.message ?? "Authentication failed");
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-bg-base flex items-center justify-center p-4">
-      <div className="fixed inset-0 opacity-[0.03]" style={{
-        backgroundImage: `linear-gradient(rgba(6,182,212,1) 1px, transparent 1px), linear-gradient(90deg, rgba(6,182,212,1) 1px, transparent 1px)`,
-        backgroundSize: "40px 40px",
-      }} />
-      <div className="relative w-full max-w-sm">
+      <div className="w-full max-w-sm">
+        {/* Logo */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Shield className="w-6 h-6 text-cyan-DEFAULT" strokeWidth={1.5} />
-            <span className="font-mono text-xl tracking-[0.3em] text-cyan-DEFAULT">{APP_NAME}</span>
-          </div>
-          <p className="font-mono text-2xs text-text-secondary tracking-widest">UAV MISSION SIMULATOR & TRAINING PLATFORM</p>
+          <p className="font-mono text-3xl font-bold text-cyan-DEFAULT tracking-[0.3em]">
+            ⚡ SKYFORGE
+          </p>
+          <p className="font-mono text-xs text-text-secondary mt-2 tracking-widest">
+            UAV SIMULATION & TRAINING PLATFORM
+          </p>
         </div>
-        <div className="bg-bg-surface border border-border-dim rounded p-6 shadow-panel">
-          <div className="flex mb-6 bg-bg-base rounded overflow-hidden border border-border-dim">
-            {(["login", "register"] as const).map((m) => (
-              <button key={m} onClick={() => { setMode(m); setError(null); }}
-                className={clsx("flex-1 py-2 font-mono text-xs tracking-widest transition-all",
-                  mode === m ? "bg-cyan-subtle text-cyan-DEFAULT border-b border-cyan-DEFAULT" : "text-text-secondary hover:text-text-primary")}>
+
+        {/* Card */}
+        <div className="bg-bg-surface border border-border-dim rounded p-6 space-y-4">
+          {/* Tab */}
+          <div className="flex border-b border-border-dim">
+            {(["login","register"] as const).map(m => (
+              <button key={m} onClick={() => { setMode(m); setError(""); }}
+                className={clsx("flex-1 py-2 font-mono text-xs tracking-widest transition-all border-b-2",
+                  mode===m?"border-border-active text-cyan-DEFAULT":"border-transparent text-text-secondary hover:text-text-primary")}>
                 {m.toUpperCase()}
               </button>
             ))}
           </div>
-          <div className="space-y-3">
+
+          <form onSubmit={submit} className="space-y-3">
             <div>
-              <label className="block font-mono text-2xs text-text-secondary tracking-widest mb-1">EMAIL</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="operator@unit.mil"
-                className="w-full bg-bg-base border border-border-dim rounded px-3 py-2 font-mono text-xs text-text-primary placeholder:text-text-dim focus:outline-none focus:border-border-active transition-all" />
+              <label className="font-mono text-2xs text-text-secondary block mb-1">
+                {mode==="login" ? "USERNAME OR EMAIL" : "USERNAME"}
+              </label>
+              <input
+                value={username} onChange={e => setUsername(e.target.value)}
+                required autoComplete="username"
+                className="w-full bg-bg-base border border-border-dim rounded px-3 py-2 font-mono text-xs text-text-primary focus:outline-none focus:border-border-active"
+              />
             </div>
+
             {mode === "register" && (
               <div>
-                <label className="block font-mono text-2xs text-text-secondary tracking-widest mb-1">CALLSIGN / USERNAME</label>
-                <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="alpha1"
-                  className="w-full bg-bg-base border border-border-dim rounded px-3 py-2 font-mono text-xs text-text-primary placeholder:text-text-dim focus:outline-none focus:border-border-active transition-all" />
+                <label className="font-mono text-2xs text-text-secondary block mb-1">EMAIL</label>
+                <input
+                  type="email" value={email} onChange={e => setEmail(e.target.value)}
+                  required autoComplete="email"
+                  className="w-full bg-bg-base border border-border-dim rounded px-3 py-2 font-mono text-xs text-text-primary focus:outline-none focus:border-border-active"
+                />
               </div>
             )}
+
             <div>
-              <label className="block font-mono text-2xs text-text-secondary tracking-widest mb-1">PASSWORD</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
-                onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                className="w-full bg-bg-base border border-border-dim rounded px-3 py-2 font-mono text-xs text-text-primary placeholder:text-text-dim focus:outline-none focus:border-border-active transition-all" />
-            </div>
-            {mode === "register" && (
-              <div>
-                <label className="block font-mono text-2xs text-text-secondary tracking-widest mb-1">ROLE</label>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {ROLES.map((r) => (
-                    <button key={r} onClick={() => setRole(r)}
-                      className={clsx("py-1.5 rounded border font-mono text-2xs tracking-widest transition-all",
-                        role === r ? "border-border-active bg-cyan-subtle text-cyan-DEFAULT" : "border-border-dim text-text-secondary hover:border-border-active hover:text-text-primary")}>
-                      {r}
-                    </button>
-                  ))}
-                </div>
+              <label className="font-mono text-2xs text-text-secondary block mb-1">PASSWORD</label>
+              <div className="relative">
+                <input
+                  type={showPw ? "text" : "password"}
+                  value={password} onChange={e => setPassword(e.target.value)}
+                  required autoComplete={mode==="login" ? "current-password" : "new-password"}
+                  minLength={8}
+                  className="w-full bg-bg-base border border-border-dim rounded px-3 py-2 pr-10 font-mono text-xs text-text-primary focus:outline-none focus:border-border-active"
+                />
+                <button type="button" onClick={() => setShowPw(!showPw)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-text-dim hover:text-text-secondary transition-colors">
+                  {showPw ? <EyeOff className="w-3.5 h-3.5"/> : <Eye className="w-3.5 h-3.5"/>}
+                </button>
               </div>
-            )}
+            </div>
+
             {error && (
-              <div className="bg-threat-high/10 border border-threat-high/30 rounded px-3 py-2">
+              <div className="flex items-center gap-2 p-2.5 rounded border border-threat-high/40 bg-threat-high/5">
+                <AlertCircle className="w-3.5 h-3.5 text-threat-high shrink-0" strokeWidth={1.5}/>
                 <p className="font-mono text-2xs text-threat-high">{error}</p>
               </div>
             )}
-            <button onClick={handleSubmit} disabled={loading}
-              className={clsx("w-full py-2.5 rounded border font-mono text-xs tracking-widest transition-all mt-2",
-                loading ? "border-border-dim text-text-dim cursor-not-allowed"
-                        : "border-border-active bg-cyan-subtle text-cyan-DEFAULT hover:bg-cyan-glow hover:shadow-cyan")}>
-              {loading ? "AUTHENTICATING..." : mode === "login" ? "ACCESS SYSTEM" : "CREATE ACCOUNT"}
+
+            <button type="submit" disabled={loading}
+              className={clsx("w-full flex items-center justify-center gap-2 py-2.5 rounded border font-mono text-xs tracking-widest transition-all",
+                loading
+                  ? "border-border-dim text-text-dim cursor-not-allowed"
+                  : "border-border-active bg-cyan-subtle text-cyan-DEFAULT hover:shadow-cyan")}>
+              {loading
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin"/>{mode==="login"?"SIGNING IN...":"REGISTERING..."}</>
+                : mode === "login" ? "SIGN IN" : "CREATE ACCOUNT"
+              }
             </button>
-          </div>
+          </form>
         </div>
-        <p className="text-center font-mono text-2xs text-text-dim mt-4">SKYFORGE v0.1.0 — TRAINING USE ONLY</p>
+
+        <p className="font-mono text-2xs text-text-dim text-center mt-4">
+          For training purposes only. Not for operational use.
+        </p>
       </div>
     </div>
   );

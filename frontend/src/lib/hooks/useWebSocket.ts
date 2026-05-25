@@ -1,85 +1,113 @@
-"use client";
 import { useEffect, useRef, useCallback, useState } from "react";
 import { useAuthStore } from "@/lib/store/auth.store";
 
-export interface TelemetrySnapshot {
-  uav_id: string; callsign: string; status: string;
-  lat: number; lon: number; altitude_m: number; speed_ms: number;
-  heading_deg: number; battery_pct: number; link_quality: number; timestamp: string;
+type WSState = "connecting" | "connected" | "disconnected" | "error";
+
+interface UseWebSocketOptions {
+  onMessage?:    (data: unknown) => void;
+  onConnect?:    () => void;
+  onDisconnect?: () => void;
+  reconnect?:    boolean;
+  maxRetries?:   number;
 }
 
-interface UseWebSocketOptions { onTelemetry?: (s: TelemetrySnapshot[]) => void; }
+const WS_BASE = typeof window !== "undefined"
+  ? window.location.origin.replace(/^http/, "ws")
+  : "ws://localhost:8000";
 
-function getWsUrl() {
-  if (typeof window === "undefined") return "ws://localhost:8000";
-  const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
-  const wsHost  = process.env.NEXT_PUBLIC_WS_URL
-    ? process.env.NEXT_PUBLIC_WS_URL.replace(/^https?/, wsProto.slice(0,-1))
-    : `${wsProto}//${window.location.host}`;
-  return wsHost;
-}
+export function useWebSocket(path: string, options: UseWebSocketOptions = {}) {
+  const { accessToken: token } = useAuthStore();
+  const wsRef       = useRef<WebSocket | null>(null);
+  const retriesRef  = useRef(0);
+  const timerRef    = useRef<NodeJS.Timeout | null>(null);
+  const mountedRef  = useRef(true);
+  const [state, setState] = useState<WSState>("disconnected");
 
-export function useWebSocket({ onTelemetry }: UseWebSocketOptions = {}) {
-  const token     = useAuthStore((s) => s.accessToken);
-  const wsRef     = useRef<WebSocket | null>(null);
-  const pingRef   = useRef<NodeJS.Timeout | null>(null);
-  const reconnRef = useRef<NodeJS.Timeout | null>(null);
-  const mountedRef = useRef(true);
-  const [connected, setConnected] = useState(false);
-  const onTelRef  = useRef(onTelemetry);
-  onTelRef.current = onTelemetry;
+  const {
+    onMessage, onConnect, onDisconnect,
+    reconnect = true,
+    maxRetries = 5,
+  } = options;
 
   const connect = useCallback(() => {
     if (!token || !mountedRef.current) return;
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
-    try {
-      const wsBase = getWsUrl();
-      const ws = new WebSocket(`${wsBase}/ws/telemetry?token=${token}`);
-      wsRef.current = ws;
+    setState("connecting");
+    const ws = new WebSocket(`${WS_BASE}${path}`);
+    wsRef.current = ws;
 
-      ws.onopen = () => {
-        if (!mountedRef.current) { ws.close(); return; }
-        setConnected(true);
-        pingRef.current = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) ws.send("ping");
-        }, 30_000);
-      };
+    ws.onopen = () => {
+      if (!mountedRef.current) { ws.close(); return; }
+      // Send auth token as first message (not in URL)
+      ws.send(JSON.stringify({ type: "auth", token }));
+    };
 
-      ws.onmessage = (e) => {
-        if (e.data === "pong") return;
-        try {
-          const msg = JSON.parse(e.data);
-          if (msg.type === "fleet_telemetry" && onTelRef.current) {
-            onTelRef.current(msg.snapshots);
-          }
-        } catch {}
-      };
-
-      ws.onclose = () => {
-        setConnected(false);
-        if (pingRef.current) { clearInterval(pingRef.current); pingRef.current = null; }
-        if (mountedRef.current) {
-          reconnRef.current = setTimeout(connect, 3_000);
+    ws.onmessage = (e) => {
+      if (!mountedRef.current) return;
+      try {
+        const data = JSON.parse(e.data);
+        if (data.type === "connected") {
+          setState("connected");
+          retriesRef.current = 0;
+          onConnect?.();
+          return;
         }
-      };
+        if (data.type === "ping") {
+          ws.send(JSON.stringify({ type: "pong" }));
+          return;
+        }
+        if (data.type === "error") {
+          setState("error");
+          return;
+        }
+        onMessage?.(data);
+      } catch {}
+    };
 
-      ws.onerror = () => ws.close();
-    } catch (e) {
-      console.warn("WebSocket connect failed:", e);
+    ws.onclose = (e) => {
+      if (!mountedRef.current) return;
+      setState("disconnected");
+      onDisconnect?.();
+
+      if (reconnect && retriesRef.current < maxRetries && e.code !== 4001) {
+        const delay = Math.min(1000 * 2 ** retriesRef.current, 30_000);
+        retriesRef.current += 1;
+        timerRef.current = setTimeout(() => {
+          if (mountedRef.current) connect();
+        }, delay);
+      }
+    };
+
+    ws.onerror = () => {
+      if (!mountedRef.current) return;
+      setState("error");
+    };
+  }, [token, path, onMessage, onConnect, onDisconnect, reconnect, maxRetries]);
+
+  const disconnect = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    retriesRef.current = maxRetries; // prevent reconnect
+    wsRef.current?.close();
+    wsRef.current = null;
+    setState("disconnected");
+  }, [maxRetries]);
+
+  const send = useCallback((data: object) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify(data));
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
-    connect();
+    if (token) connect();
     return () => {
       mountedRef.current = false;
-      if (pingRef.current)  clearInterval(pingRef.current);
-      if (reconnRef.current) clearTimeout(reconnRef.current);
+      if (timerRef.current) clearTimeout(timerRef.current);
       wsRef.current?.close();
     };
-  }, [connect]);
+  }, [token]); // reconnect when token changes
 
-  return { connected };
+  return { state, send, connect, disconnect };
 }
