@@ -2,12 +2,12 @@ import math, random, structlog
 from app.simulation.ew.models import EWEmitter, EWState, EWEffect, JammingType
 
 logger=structlog.get_logger()
-EARTH_RADIUS_M=6_371_000.0; GPS_L1_FREQ=1575.42; GPS_L2_FREQ=1227.60
+EARTH_R=6_371_000.0; GPS_L1_FREQ=1575.42; GPS_L2_FREQ=1227.60
 
 def _haversine_m(lat1,lon1,lat2,lon2):
-    r=EARTH_RADIUS_M; p=math.pi/180
+    p=math.pi/180
     a=(math.sin((lat2-lat1)*p/2)**2+math.cos(lat1*p)*math.cos(lat2*p)*math.sin((lon2-lon1)*p/2)**2)
-    return 2*r*math.asin(math.sqrt(a))
+    return 2*EARTH_R*math.asin(math.sqrt(max(0,a)))
 
 def _fsl_db(dist_m,freq_mhz):
     if dist_m<1: dist_m=1.0
@@ -16,15 +16,22 @@ def _fsl_db(dist_m,freq_mhz):
 def _js_db(emitter,ulat,ulon,ualt,sig_dbm=-130.0,gps_bands=None):
     dist_m=_haversine_m(emitter.lat,emitter.lon,ulat,ulon)
     dist_3d=math.sqrt(dist_m**2+abs(ualt-emitter.altitude_m)**2)
+
+    # Hard cutoff at effective_range_km
+    if dist_3d > emitter.effective_range_km * 1000:
+        return -999.0
+
     jpower=10*math.log10(emitter.power_kw*1_000_000)
     freq=GPS_L1_FREQ
     if gps_bands and "L2" in gps_bands: freq=(GPS_L1_FREQ+GPS_L2_FREQ)/2
     return jpower-_fsl_db(dist_3d,freq)-sig_dbm
 
 class EWEngine:
-    GPS_DEG=10.0; GPS_DENY=25.0; GPS_SPOOF=35.0; LINK_DEG=15.0; LINK_DENY=30.0
+    # Raised thresholds to be realistic
+    GPS_DEG=20.0; GPS_DENY=35.0; GPS_SPOOF=45.0
+    LINK_DEG=20.0; LINK_DENY=35.0
 
-    def __init__(self, emitters=None):
+    def __init__(self,emitters=None):
         self._emitters=emitters or []
 
     def add_emitter(self,e): self._emitters.append(e)
@@ -32,7 +39,7 @@ class EWEngine:
     def get_emitters(self): return self._emitters
 
     def compute(self,uav_id,uav_lat,uav_lon,uav_alt_m,uav_gps_bands,uav_datalink_freq_mhz,dt=1.0,prev_state=None):
-        state=EWState(); 
+        state=EWState()
         if prev_state: state.gps_drift_ms=prev_state.gps_drift_ms
         active=[e for e in self._emitters if e.active]
         if not active: return state

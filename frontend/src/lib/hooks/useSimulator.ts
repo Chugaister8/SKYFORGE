@@ -39,53 +39,77 @@ export function useSimulator(libraryId: string) {
   const [state,   setState]   = useState<SimState>(DEFAULT_STATE);
   const [ewState, setEwState] = useState<EWState>(DEFAULT_EW);
   const [running, setRunning] = useState(false);
-  const [wind,    setWind]    = useState({speed:0,dir:0,turb:0});
-  const loopRef  = useRef<NodeJS.Timeout|null>(null);
-  const ctrlRef  = useRef<SimControl>({roll_cmd:0,pitch_cmd:0,yaw_cmd:0,throttle_cmd:0});
-  const stateRef = useRef<SimState>(DEFAULT_STATE);
+  const [wind,    setWindState] = useState({speed:0, dir:0, turb:0});
 
+  // Refs for interval closure (avoid stale state)
+  const stateRef   = useRef<SimState>(DEFAULT_STATE);
+  const ctrlRef    = useRef<SimControl>({roll_cmd:0,pitch_cmd:0,yaw_cmd:0,throttle_cmd:0});
+  const windRef    = useRef({speed:0, dir:0, turb:0});
+  const tokenRef   = useRef(token);
+  const libRef     = useRef(libraryId);
+  const loopRef    = useRef<NodeJS.Timeout|null>(null);
+
+  // Keep refs in sync
   useEffect(() => { stateRef.current = state; }, [state]);
+  useEffect(() => { tokenRef.current = token; }, [token]);
+  useEffect(() => { libRef.current = libraryId; }, [libraryId]);
 
   const step = useCallback(async () => {
-    if (!token) return;
+    const t = tokenRef.current;
+    if (!t) return;
     try {
-      const res = await api.post<{state:SimState;diagnostics:Record<string,any>}>(
+      const res = await api.post<{state:SimState; diagnostics:Record<string,unknown>}>(
         "/sim/step",
-        {library_id:libraryId,state:stateRef.current,control:ctrlRef.current,
-         dt:0.05,wind_speed:wind.speed,wind_dir_deg:wind.dir,turbulence:wind.turb},
-        token,
+        {
+          library_id:   libRef.current,
+          state:        stateRef.current,
+          control:      ctrlRef.current,
+          dt:           0.05,
+          wind_speed:   windRef.current.speed,
+          wind_dir_deg: windRef.current.dir,
+          turbulence:   windRef.current.turb,
+        },
+        t,
       );
+      stateRef.current = res.state;
       setState(res.state);
-    } catch {}
-  }, [token, libraryId, wind]);
-
-  const stepRef = useRef(step);
-  useEffect(() => { stepRef.current = step; }, [step]);
+    } catch (e) {
+      // Network error - stop sim
+      console.error("Sim step failed:", e);
+    }
+  }, []);
 
   const start = useCallback(() => {
     setRunning(true);
-    loopRef.current = setInterval(() => stepRef.current(), 50);
-  }, []);
+    loopRef.current = setInterval(step, 50); // 20Hz
+  }, [step]);
 
   const stop = useCallback(() => {
     setRunning(false);
-    if (loopRef.current) clearInterval(loopRef.current);
+    if (loopRef.current) { clearInterval(loopRef.current); loopRef.current = null; }
   }, []);
 
   const reset = useCallback(() => {
     stop();
-    setState(DEFAULT_STATE);
-    setEwState(DEFAULT_EW);
-    stateRef.current = DEFAULT_STATE;
+    const def = { ...DEFAULT_STATE };
+    stateRef.current = def;
+    setState(def);
+    setEwState({ ...DEFAULT_EW });
   }, [stop]);
 
   const setControl = useCallback((ctrl: Partial<SimControl>) => {
-    ctrlRef.current = {...ctrlRef.current,...ctrl};
+    ctrlRef.current = { ...ctrlRef.current, ...ctrl };
   }, []);
 
-  const setWindFn = useCallback((w:{speed:number;dir:number;turb:number}) => {
-    setWind(w);
+  const setWind = useCallback((w: {speed:number; dir:number; turb:number}) => {
+    windRef.current = w;
+    setWindState(w);
   }, []);
 
-  return { state, ewState, running, wind, start, stop, reset, setControl, setWind: setWindFn };
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => { if (loopRef.current) clearInterval(loopRef.current); };
+  }, []);
+
+  return { state, ewState, running, wind, start, stop, reset, setControl, setWind };
 }

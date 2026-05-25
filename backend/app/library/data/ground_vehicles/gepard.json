@@ -1,1 +1,36 @@
-{"id":"gepard","name":"Flakpanzer Gepard","nato_designation":null,"country_of_origin":"DE","faction":"FRIENDLY","category":"GROUND_VEHICLE","vehicle_type":"SPAAG","mass_tonnes":47.5,"length_m":9.51,"width_m":3.71,"height_m":3.01,"max_speed_kmh":65,"crew":3,"main_gun":"Twin Oerlikon KDA 35mm","caliber_mm":35,"secondary":[],"armor_type":"Steel armor","vs_atgm":"MEDIUM","vs_uav":"VERY_LOW","ir_signature":"HIGH","acoustic_signature":"HIGH","threat_level":"LOW","description":"German self-propelled anti-aircraft gun supplied to Ukraine. Twin 35mm Oerlikon autocannons. Proven highly effective against Shahed-136 and other UAVs. Rate of fire 550 rounds/min per barrel.","how_to_detect":[],"how_to_counter":[],"tags":["spaag","tracked","germany","ukraine","anti-drone","35mm","proven-combat"]}
+{
+  "id": "gepard",
+  "name": "Flakpanzer Gepard",
+  "nato_designation": null,
+  "country_of_origin": "DE",
+  "faction": "FRIENDLY",
+  "category": "GROUND_VEHICLE",
+  "vehicle_type": "SPAAG",
+  "mass_tonnes": 47.5,
+  "length_m": 9.51,
+  "width_m": 3.71,
+  "height_m": 3.01,
+  "max_speed_kmh": 65,
+  "crew": 3,
+  "main_gun": "Twin Oerlikon KDA 35mm",
+  "caliber_mm": 35,
+  "secondary": [],
+  "armor_type": "Steel armor",
+  "vs_atgm": "MEDIUM",
+  "vs_uav": "LOW",
+  "ir_signature": "HIGH",
+  "acoustic_signature": "HIGH",
+  "threat_level": "LOW",
+  "description": "German self-propelled anti-aircraft gun supplied to Ukraine. Twin 35mm Oerlikon autocannons. Proven highly effective against Shahed-136 and other UAVs. Rate of fire 550 rounds/min per barrel.",
+  "how_to_detect": [],
+  "how_to_counter": [],
+  "tags": [
+    "spaag",
+    "tracked",
+    "germany",
+    "ukraine",
+    "anti-drone",
+    "35mm",
+    "proven-combat"
+  ]
+}

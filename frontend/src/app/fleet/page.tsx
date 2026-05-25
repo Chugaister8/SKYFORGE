@@ -6,8 +6,8 @@ import { UAVForm } from "@/components/fleet/UAVForm";
 import { useTelemetryStore } from "@/lib/store/telemetry.store";
 import { clsx } from "clsx";
 import { Plus, Plane, Battery, Wifi, Navigation, Gauge, Eye, Thermometer, Layers, Trash2 } from "lucide-react";
+import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store/auth.store";
-import { API_URL } from "@/lib/constants";
 
 const STATUS_CFG: Record<string,{label:string;color:string;dot:string}> = {
   ONLINE:     {label:"ONLINE",    color:"text-threat-low",   dot:"bg-threat-low"},
@@ -33,7 +33,7 @@ export default function FleetPage() {
   async function handleDelete(id:string) {
     if(!confirm("Remove this UAV from fleet?")) return;
     setDeleting(id);
-    await fetch(`${API_URL}/api/fleet/${id}`,{method:"DELETE",headers:{Authorization:`Bearer ${token}`}});
+    await api.delete(`/fleet/${id}`, token ?? undefined);
     qc.invalidateQueries({queryKey:["fleet"]});
     setDeleting(null);
   }

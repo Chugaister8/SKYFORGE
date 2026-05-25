@@ -4,7 +4,11 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { clsx } from "clsx";
-import { Wrench, AlertTriangle, Zap, ChevronDown, ChevronUp, Shield, Radio, Cpu, Wifi, Eye, Wind } from "lucide-react";
+import { Wrench, AlertTriangle, Zap, ChevronDown, ChevronUp, Shield, Radio, Cpu, Wifi, Eye, Wind, FlaskConical, Package } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const EngineerToolkit   = dynamic(() => import("./tools/EngineerToolkit"),   { ssr: false, loading: () => <div className="flex items-center justify-center h-64 font-mono text-xs text-text-dim">Loading toolkit...</div> });
+const ComponentLibrary  = dynamic(() => import("./tools/ComponentLibrary"),  { ssr: false, loading: () => <div className="flex items-center justify-center h-64 font-mono text-xs text-text-dim">Loading library...</div> });
 
 interface Failure {
   id:string; name:string; category:string; severity:string; description:string;
@@ -70,8 +74,11 @@ function FailureCard({failure}:{failure:Failure}){
   </div>);
 }
 
+type Tab = "failures" | "toolkit" | "components";
+
 export default function EngineerPage(){
   const token=useAuthStore(s=>s.accessToken);
+  const [mainTab, setMainTab] = useState<Tab>("components");
   const[category,setCategory]=useState("ALL");
   const[uavClass,setUavClass]=useState("TACTICAL_MULTIROTOR");
   const[flightHrs,setFlightHrs]=useState(1.0);
@@ -80,7 +87,7 @@ export default function EngineerPage(){
   const{data,isLoading}=useQuery<{failures:Failure[];categories:string[]}>({
     queryKey:["failures",category],
     queryFn:()=>api.get(category!=="ALL"?`/engineer/failures?category=${category}`:"/engineer/failures",token??undefined),
-    enabled:!!token,
+    enabled:!!token&&mainTab==="failures",
   });
 
   const simulate=useMutation({
@@ -90,74 +97,100 @@ export default function EngineerPage(){
 
   const failures=data?.failures??[]; const cats=["ALL",...(data?.categories??[])];
 
-  return(<div className="p-5 space-y-5 max-w-[1200px]">
-    <div>
-      <p className="font-mono text-2xs text-text-secondary tracking-widest mb-0.5">ENGINEER</p>
-      <h1 className="font-mono text-base text-text-primary tracking-wide">Failure Analysis & Procedures</h1>
-    </div>
+  const MAIN_TABS = [
+    { id: "components", label: "COMPONENT LIBRARY", icon: Package,     color: "text-cyan-DEFAULT",  desc: "Smart selector · 57 components · Compatibility check" },
+    { id: "toolkit",    label: "PHYSICS TOOLKIT",   icon: FlaskConical, color: "text-purple-400",    desc: "Propulsion · Aero · RF · Battery · Telemetry" },
+    { id: "failures",   label: "FAILURE ANALYSIS",  icon: AlertTriangle,color: "text-threat-medium", desc: "10 failure types · Emergency procedures · Simulator" },
+  ] as const;
 
-    {/* Failure simulator */}
-    <div className="bg-bg-surface border border-border-dim rounded p-4">
-      <p className="font-mono text-2xs text-text-secondary tracking-widest mb-3">FAILURE SIMULATOR</p>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-        <div>
-          <label className="font-mono text-2xs text-text-dim block mb-1">UAV CLASS</label>
-          <select value={uavClass} onChange={e=>setUavClass(e.target.value)}
-            className="w-full bg-bg-base border border-border-dim rounded px-2.5 py-1.5 font-mono text-xs text-text-primary focus:outline-none focus:border-border-active">
-            {UAV_CLASSES.map(c=><option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="font-mono text-2xs text-text-dim block mb-1">FLIGHT HOURS: {flightHrs.toFixed(1)}h</label>
-          <input type="range" min={0.1} max={10} step={0.1} value={flightHrs}
-            onChange={e=>setFlightHrs(Number(e.target.value))} className="w-full accent-cyan-500 mt-1"/>
-        </div>
-        <div className="flex items-end">
-          <button onClick={()=>simulate.mutate()} disabled={simulate.isPending}
-            className={clsx("w-full flex items-center justify-center gap-2 py-2 rounded border font-mono text-xs tracking-widest transition-all",
-              simulate.isPending?"border-border-dim text-text-dim cursor-not-allowed":"border-threat-medium bg-threat-medium/10 text-threat-medium hover:bg-threat-medium/20")}>
-            <Zap className="w-3.5 h-3.5" strokeWidth={1.5}/>{simulate.isPending?"SIMULATING...":"INJECT FAILURE"}
+  return (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Top nav */}
+      <div className="flex items-center gap-1 px-4 border-b border-border-dim bg-bg-surface shrink-0">
+        {MAIN_TABS.map(({ id, label, icon: Icon, color, desc }) => (
+          <button key={id} onClick={() => setMainTab(id as Tab)}
+            className={clsx(
+              "flex items-center gap-2 px-4 py-3 font-mono text-xs tracking-widest transition-all border-b-2 -mb-px",
+              mainTab === id ? `border-current ${color}` : "border-transparent text-text-secondary hover:text-text-primary"
+            )}>
+            <Icon className="w-3.5 h-3.5" strokeWidth={1.5} />
+            {label}
           </button>
+        ))}
+        <div className="ml-auto font-mono text-2xs text-text-dim">
+          {MAIN_TABS.find(t => t.id === mainTab)?.desc}
         </div>
       </div>
-      {simResult&&(simResult.failure?(
-        <div className={clsx("p-3 rounded border mt-2",SEV[simResult.failure.severity]?.border,SEV[simResult.failure.severity]?.bg)}>
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className={clsx("w-4 h-4",SEV[simResult.failure.severity]?.color)} strokeWidth={1.5}/>
-            <span className={clsx("font-mono text-xs font-medium",SEV[simResult.failure.severity]?.color)}>FAILURE: {simResult.failure.name}</span>
-          </div>
-          <p className="font-mono text-2xs text-text-secondary mb-2">{simResult.failure.description}</p>
-          <p className="font-mono text-2xs text-text-secondary tracking-widest mb-1">IMMEDIATE ACTIONS:</p>
-          {simResult.failure.procedures.slice(0,3).map((p:string,i:number)=>(
-            <p key={i} className="font-mono text-2xs text-text-secondary">{i+1}. {p}</p>
-          ))}
-        </div>
-      ):(
-        <div className="p-3 rounded border border-threat-low/30 bg-threat-low/5 mt-2">
-          <p className="font-mono text-2xs text-threat-low">✓ Flight nominal — no failure generated</p>
-        </div>
-      ))}
-    </div>
 
-    {/* Failure library */}
-    <div>
-      <div className="flex items-center gap-2 mb-3">
-        <p className="font-mono text-2xs text-text-secondary tracking-widest">FAILURE LIBRARY</p>
-        <div className="flex gap-1.5 ml-auto">
-          {cats.map(cat=>(
-            <button key={cat} onClick={()=>setCategory(cat)}
-              className={clsx("px-2 py-1 rounded border font-mono text-2xs transition-all",
-                category===cat?"border-border-active bg-cyan-subtle text-cyan-DEFAULT":"border-border-dim text-text-secondary hover:text-text-primary")}>
-              {cat}
-            </button>
-          ))}
-        </div>
+      {/* Content */}
+      <div className="flex-1 overflow-hidden">
+        {mainTab === "components" && <ComponentLibrary />}
+        {mainTab === "toolkit"    && <EngineerToolkit />}
+        {mainTab === "failures"   && (
+          <div className="p-5 space-y-5 max-w-[1200px] overflow-y-auto h-full">
+            <div className="bg-bg-surface border border-border-dim rounded p-4">
+              <p className="font-mono text-2xs text-text-secondary tracking-widest mb-3">FAILURE SIMULATOR</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                <div>
+                  <label className="font-mono text-2xs text-text-dim block mb-1">UAV CLASS</label>
+                  <select value={uavClass} onChange={e=>setUavClass(e.target.value)}
+                    className="w-full bg-bg-base border border-border-dim rounded px-2.5 py-1.5 font-mono text-xs text-text-primary focus:outline-none focus:border-border-active">
+                    {UAV_CLASSES.map(c=><option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="font-mono text-2xs text-text-dim block mb-1">FLIGHT HOURS: {flightHrs.toFixed(1)}h</label>
+                  <input type="range" min={0.1} max={10} step={0.1} value={flightHrs}
+                    onChange={e=>setFlightHrs(Number(e.target.value))} className="w-full accent-cyan-500 mt-1"/>
+                </div>
+                <div className="flex items-end">
+                  <button onClick={()=>simulate.mutate()} disabled={simulate.isPending}
+                    className={clsx("w-full flex items-center justify-center gap-2 py-2 rounded border font-mono text-xs tracking-widest transition-all",
+                      simulate.isPending?"border-border-dim text-text-dim cursor-not-allowed":"border-threat-medium bg-threat-medium/10 text-threat-medium hover:bg-threat-medium/20")}>
+                    <Zap className="w-3.5 h-3.5" strokeWidth={1.5}/>{simulate.isPending?"SIMULATING...":"INJECT FAILURE"}
+                  </button>
+                </div>
+              </div>
+              {simResult&&(simResult.failure?(
+                <div className={clsx("p-3 rounded border mt-2",SEV[simResult.failure.severity]?.border,SEV[simResult.failure.severity]?.bg)}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className={clsx("w-4 h-4",SEV[simResult.failure.severity]?.color)} strokeWidth={1.5}/>
+                    <span className={clsx("font-mono text-xs font-medium",SEV[simResult.failure.severity]?.color)}>FAILURE: {simResult.failure.name}</span>
+                  </div>
+                  <p className="font-mono text-2xs text-text-secondary mb-2">{simResult.failure.description}</p>
+                  <p className="font-mono text-2xs text-text-secondary tracking-widest mb-1">IMMEDIATE ACTIONS:</p>
+                  {simResult.failure.procedures.slice(0,3).map((p:string,i:number)=>(
+                    <p key={i} className="font-mono text-2xs text-text-secondary">{i+1}. {p}</p>
+                  ))}
+                </div>
+              ):(
+                <div className="p-3 rounded border border-threat-low/30 bg-threat-low/5 mt-2">
+                  <p className="font-mono text-2xs text-threat-low">✓ Flight nominal — no failure generated</p>
+                </div>
+              ))}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <p className="font-mono text-2xs text-text-secondary tracking-widest">FAILURE LIBRARY</p>
+                <div className="flex gap-1.5 ml-auto">
+                  {cats.map(cat=>(
+                    <button key={cat} onClick={()=>setCategory(cat)}
+                      className={clsx("px-2 py-1 rounded border font-mono text-2xs transition-all",
+                        category===cat?"border-border-active bg-cyan-subtle text-cyan-DEFAULT":"border-border-dim text-text-secondary hover:text-text-primary")}>
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {isLoading?(
+                <div className="space-y-2">{[1,2,3,4].map(i=><div key={i} className="h-16 bg-bg-surface rounded animate-pulse"/>)}</div>
+              ):(
+                <div className="space-y-2">{failures.map(f=><FailureCard key={f.id} failure={f}/>)}</div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
-      {isLoading?(
-        <div className="space-y-2">{[1,2,3,4].map(i=><div key={i} className="h-16 bg-bg-surface rounded animate-pulse"/>)}</div>
-      ):(
-        <div className="space-y-2">{failures.map(f=><FailureCard key={f.id} failure={f}/>)}</div>
-      )}
     </div>
-  </div>);
+  );
 }

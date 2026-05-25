@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import type { Waypoint, ThreatSite } from "@/lib/hooks/useMission";
 
 interface Props {
@@ -23,6 +23,18 @@ export function MissionMap({waypoints,sites,tool,samPreset,onAddWaypoint,onAddSi
   const routeRef=useRef<any>(null);
   const LRef=useRef<any>(null);
 
+  // Refs to avoid stale closures in click handler
+  const toolRef=useRef(tool);
+  const presetRef=useRef(samPreset);
+  const onAddWpRef=useRef(onAddWaypoint);
+  const onAddSiteRef=useRef(onAddSite);
+
+  useEffect(()=>{ toolRef.current=tool; }, [tool]);
+  useEffect(()=>{ presetRef.current=samPreset; }, [samPreset]);
+  useEffect(()=>{ onAddWpRef.current=onAddWaypoint; }, [onAddWaypoint]);
+  useEffect(()=>{ onAddSiteRef.current=onAddSite; }, [onAddSite]);
+
+  // Init map once
   useEffect(()=>{
     if(typeof window==="undefined"||mapRef.current||!mountRef.current) return;
     import("leaflet").then(lf=>{
@@ -30,26 +42,18 @@ export function MissionMap({waypoints,sites,tool,samPreset,onAddWaypoint,onAddSi
       delete (L.Icon.Default.prototype as any)._getIconUrl;
       const map=L.map(mountRef.current!,{center:[48.4,31.2],zoom:9,zoomControl:true,attributionControl:false});
       L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{maxZoom:19,subdomains:"abcd"}).addTo(map);
+      // Single click handler using refs - always current values
       map.on("click",(e:any)=>{
         const{lat,lng}=e.latlng;
-        if(tool==="waypoint") onAddWaypoint(lat,lng);
-        else if(tool==="sam") onAddSite(lat,lng,samPreset);
+        if(toolRef.current==="waypoint") onAddWpRef.current(lat,lng);
+        else if(toolRef.current==="sam") onAddSiteRef.current(lat,lng,presetRef.current);
       });
       mapRef.current=map;
     });
     return()=>{mapRef.current?.remove();mapRef.current=null;};
   },[]);
 
-  useEffect(()=>{
-    if(!mapRef.current) return;
-    mapRef.current.off("click");
-    mapRef.current.on("click",(e:any)=>{
-      const{lat,lng}=e.latlng;
-      if(tool==="waypoint") onAddWaypoint(lat,lng);
-      else if(tool==="sam") onAddSite(lat,lng,samPreset);
-    });
-  },[tool,samPreset,onAddWaypoint,onAddSite]);
-
+  // Render waypoints + route
   useEffect(()=>{
     const map=mapRef.current; const L=LRef.current;
     if(!map||!L) return;
@@ -64,12 +68,12 @@ export function MissionMap({waypoints,sites,tool,samPreset,onAddWaypoint,onAddSi
         html:`<div style="width:22px;height:22px;background:${color};border:2px solid rgba(255,255,255,0.5);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:monospace;font-size:9px;color:#fff;font-weight:600;box-shadow:0 0 8px ${color}88;">${idx+1}</div>`,
         className:"",iconSize:[22,22],iconAnchor:[11,11],
       });
-      const marker=L.marker([wp.lat,wp.lon],{icon}).addTo(map)
-        .bindTooltip(`<div style="font-family:monospace;font-size:10px;color:#e2e8f0"><b>WP${idx+1}</b> — ${wp.action}<br/>Alt: ${wp.alt_m}m | Spd: ${wp.speed_ms}m/s<br/>Risk: <span style="color:${color}">${wp.risk}</span>${wp.max_pk>0?` | P(k): ${(wp.max_pk*100).toFixed(0)}%`:""}</div>`,{className:"skyforge-tip"});
-      markersRef.current.set(wp.id,marker);
+      markersRef.current.set(wp.id,L.marker([wp.lat,wp.lon],{icon}).addTo(map)
+        .bindTooltip(`<div style="font-family:monospace;font-size:10px;color:#e2e8f0"><b>WP${idx+1}</b> — ${wp.action}<br/>Alt: ${wp.alt_m}m | Spd: ${wp.speed_ms}m/s<br/>Risk: <span style="color:${color}">${wp.risk}</span>${wp.max_pk>0?` | P(k): ${(wp.max_pk*100).toFixed(0)}%`:""}</div>`));
     });
   },[waypoints]);
 
+  // Render SAM sites
   useEffect(()=>{
     const map=mapRef.current; const L=LRef.current;
     if(!map||!L) return;
@@ -85,7 +89,7 @@ export function MissionMap({waypoints,sites,tool,samPreset,onAddWaypoint,onAddSi
         className:"",iconSize:[40,28],iconAnchor:[20,8],
       });
       markersRef.current.set(site.id,L.marker([site.lat,site.lon],{icon}).addTo(map)
-        .bindTooltip(`<div style="font-family:monospace;font-size:10px;color:#e2e8f0"><b>${site.name}</b><br/>Search: ${ranges.search}km | Missile: ${ranges.missile}km</div>`,{className:"skyforge-tip"}));
+        .bindTooltip(`<div style="font-family:monospace;font-size:10px;color:#e2e8f0"><b>${site.name}</b><br/>Search: ${ranges.search}km | Missile: ${ranges.missile}km</div>`));
     });
   },[sites]);
 
@@ -93,7 +97,7 @@ export function MissionMap({waypoints,sites,tool,samPreset,onAddWaypoint,onAddSi
     <div className="relative w-full h-full">
       <div ref={mountRef} className="w-full h-full"/>
       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
-        {tool==="waypoint"&&<span className="font-mono text-2xs text-cyan-DEFAULT bg-bg-base/90 px-3 py-1 rounded border border-border-active">Click to add waypoint</span>}
+        {tool==="waypoint"&&<span className="font-mono text-2xs text-cyan-DEFAULT bg-bg-base/90 px-3 py-1 rounded border border-border-active">Click map to add waypoint</span>}
         {tool==="sam"&&<span className="font-mono text-2xs text-threat-high bg-bg-base/90 px-3 py-1 rounded border border-threat-high/40">Click to place {samPreset.toUpperCase()}</span>}
       </div>
     </div>

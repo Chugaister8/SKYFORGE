@@ -17,14 +17,18 @@ async def telemetry_ws(websocket: WebSocket, token: str = Query(...)):
     except Exception:
         await websocket.close(code=4001)
         return
+
     await ws_manager.connect(websocket, user_id)
+    logger.info("ws.connected", user_id=user_id)
+
     try:
         while True:
             data = await websocket.receive_text()
             if data == "ping":
-                await websocket.send_text('{"type":"pong"}')
+                await websocket.send_text("pong")
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket, user_id)
+        logger.info("ws.disconnected", user_id=user_id)
     except Exception as e:
         logger.error("ws.error", user_id=user_id, error=str(e))
         ws_manager.disconnect(websocket, user_id)

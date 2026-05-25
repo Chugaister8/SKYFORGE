@@ -72,3 +72,14 @@ def generate_random_failure(uav_class,flight_hours,has_ecm=False):
         cum+=prob
         if r<cum: return failure
     return None
+
+
+
+def generate_random_failure(uav_class:str, flight_hours:float, has_ecm:bool=False):
+    import math
+    for f in FAILURE_LIBRARY.values():
+        rate=f.probability
+        if f.category==FailureCategory.COMMS and has_ecm: rate*=0.5
+        if random.random() < (1.0 - math.exp(-rate * flight_hours)):
+            return f
+    return None
