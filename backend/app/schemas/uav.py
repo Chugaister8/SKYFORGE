@@ -28,10 +28,24 @@ class UAVCreate(BaseModel):
     jamming_resistance: str | None = None
     custom_params:    dict       = {}
 
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v: raise ValueError("Name cannot be empty")
+        if len(v) > 64: raise ValueError("Name too long (max 64)")
+        return v
+
     @field_validator("callsign")
     @classmethod
     def callsign_upper(cls, v: str) -> str:
-        return v.upper().strip()
+        v = v.upper().strip()
+        if not v: raise ValueError("Callsign cannot be empty")
+        if len(v) > 16: raise ValueError("Callsign too long (max 16)")
+        import re
+        if not re.match(r"^[A-Z0-9\-_]+$", v):
+            raise ValueError("Callsign must be uppercase alphanumeric")
+        return v
 
     @field_validator("mass_kg", "max_speed_ms", "endurance_min")
     @classmethod

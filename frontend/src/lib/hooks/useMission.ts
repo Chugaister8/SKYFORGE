@@ -28,13 +28,17 @@ export interface SavedMission {
   created_at:string; score:number;
 }
 
-export function useSavedMissions() {
-  const token = useAuthStore(s=>s.accessToken);
+export function useSavedMissions(limit=50, statusFilter?: string) {
+  const token  = useAuthStore(s=>s.accessToken);
+  const params = new URLSearchParams({limit: String(limit)});
+  if (statusFilter) params.set("status", statusFilter);
   return useQuery<{data:SavedMission[]}>({
-    queryKey: ["missions"],
+    queryKey: ["missions", limit, statusFilter],
     queryFn: async () => {
-      const list = await api.get<SavedMission[]>("/missions/", token??undefined);
-      return { data: Array.isArray(list) ? list : [] };
+      // API returns either array (legacy) or paginated {items,total,...}
+      const res = await api.get<any>(`/missions/?${params}`, token??undefined);
+      const list = Array.isArray(res) ? res : (res?.items ?? res?.data ?? []);
+      return { data: list };
     },
     enabled: !!token,
   });

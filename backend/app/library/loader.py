@@ -91,3 +91,26 @@ def get_by_faction(faction: Faction) -> list[LibraryEntryMeta]:
 
 def get_by_category(category: EntityCategory) -> list[LibraryEntryMeta]:
     return [e for e in get_all_meta() if e.category == category]
+
+
+# Compatibility aliases for library.py API
+def get_library() -> dict[str, Any]:
+    """Returns dict of id → serializable dict (for API responses)."""
+    lib = load_library()
+    result = {}
+    for k, v in lib.items():
+        try:
+            result[k] = v.model_dump()
+        except Exception:
+            result[k] = {"id": k, "name": str(v)}
+    return result
+
+
+def get_unit(unit_id: str) -> dict | None:
+    entry = get_entry(unit_id)
+    if not entry:
+        return None
+    try:
+        return entry.model_dump()
+    except Exception:
+        return {"id": unit_id, "name": str(entry)}

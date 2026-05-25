@@ -1,38 +1,63 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { useAuthStore } from "@/lib/store/auth.store";
 
-export type Faction     = "FRIENDLY" | "HOSTILE" | "NEUTRAL";
-export type Category    = "UAV" | "AIR_DEFENSE" | "EW_SYSTEM" | "GROUND_VEHICLE" | "NAVAL" | "STATIC";
-export type ThreatLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-
-export interface LibraryMeta {
-  id: string; name: string; faction: Faction; category: Category;
-  subtype: string; country: string; threat_level: ThreatLevel;
-  tags: string[]; image_url: string | null;
+export interface LibraryUnit {
+  id:           string;
+  name:         string;
+  category:     string;
+  faction:      string;
+  threat_level: string;
+  tags:         string[];
+  [key: string]: unknown;
 }
 
-interface LibraryFilters {
-  faction?: Faction; category?: Category; search?: string;
+export interface PagedLibrary {
+  units:    LibraryUnit[];
+  total:    number;
+  limit:    number;
+  offset:   number;
+  has_more: boolean;
 }
 
-export function useLibrary(filters: LibraryFilters = {}) {
+export function useLibrary(
+  category?: string,
+  faction?:  string,
+  search?:   string,
+  limit = 50,
+  offset = 0,
+) {
+  const token = useAuthStore(s => s.accessToken);
   const params = new URLSearchParams();
-  if (filters.faction)  params.set("faction",  filters.faction);
-  if (filters.category) params.set("category", filters.category);
-  if (filters.search)   params.set("search",   filters.search);
-  const query = params.toString();
-  return useQuery<LibraryMeta[]>({
-    queryKey: ["library", filters],
-    queryFn:  () => api.get<LibraryMeta[]>(`/library/${query ? `?${query}` : ""}`),
-    staleTime: 60_000,
+  if (category) params.set("category", category);
+  if (faction)  params.set("faction",  faction);
+  if (search)   params.set("search",   search);
+  params.set("limit",  String(limit));
+  params.set("offset", String(offset));
+
+  return useQuery<PagedLibrary>({
+    queryKey: ["library", category, faction, search, limit, offset],
+    queryFn:  () => api.get(`/library/?${params}`, token ?? undefined),
+    enabled:  !!token,
+    staleTime: 300_000, // 5 min — library is stable
   });
 }
 
-export function useLibraryEntry(id: string | null) {
-  return useQuery({
-    queryKey: ["library", "entry", id],
-    queryFn:  () => api.get(`/library/${id}`),
-    enabled:  !!id,
+export function useLibraryUnit(id: string | null) {
+  const token = useAuthStore(s => s.accessToken);
+  return useQuery<LibraryUnit>({
+    queryKey: ["library-unit", id],
+    queryFn:  () => api.get(`/library/${id}`, token ?? undefined),
+    enabled:  !!token && !!id,
     staleTime: 300_000,
+  });
+}
+
+export function useLibraryStats() {
+  const token = useAuthStore(s => s.accessToken);
+  return useQuery<{total:number;categories:Record<string,number>;factions:Record<string,number>}>({
+    queryKey: ["library-stats"],
+    queryFn:  () => api.get("/library/stats", token ?? undefined),
+    enabled:  !!token,
   });
 }
