@@ -1,6 +1,6 @@
 "use client";
 import { clsx } from "clsx";
-import { MapPin, Shield, Radio, MousePointer, Trash2, Zap, AlertTriangle } from "lucide-react";
+import { MapPin, Shield, Radio, MousePointer, Trash2, Zap, AlertTriangle, Sparkles } from "lucide-react";
 
 type Tool="select"|"waypoint"|"sam"|"ew";
 const SAM_PRESETS=["tor-m1","buk-m2","zu-23-2","manpads"];
@@ -9,7 +9,7 @@ const TOOLS:[Tool,any,string,string?][]=[
   ["sam",Shield,"SAM","text-threat-high"],["ew",Radio,"EW","text-purple-400"],
 ];
 
-interface Props{
+interface Props{onLoadScenario?:()=>void;
   tool:Tool;samPreset:string;onTool:(t:Tool)=>void;onSamPreset:(p:string)=>void;
   onAnalyze:()=>void;onClear:()=>void;analyzing:boolean;
   wpCount:number;siteCount:number;overallRisk:number;
@@ -51,6 +51,11 @@ export function MissionToolbar({tool,samPreset,onTool,onSamPreset,onAnalyze,onCl
         )}
       </div>
       <div className="flex items-center gap-1.5 border-l border-border-dim pl-2">
+        {onLoadScenario&&(
+          <button onClick={onLoadScenario} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded border border-border-dim text-text-secondary hover:text-cyan-DEFAULT hover:border-border-active font-mono text-2xs tracking-widest transition-all">
+            <Sparkles className="w-3 h-3" strokeWidth={1.5}/>SCENARIO
+          </button>
+        )}
         <button onClick={onAnalyze} disabled={analyzing||wpCount===0} className={clsx(
           "flex items-center gap-1.5 px-3 py-1.5 rounded border font-mono text-2xs tracking-widest transition-all",
           analyzing||wpCount===0?"border-border-dim text-text-dim cursor-not-allowed":"border-threat-medium bg-threat-medium/10 text-threat-medium hover:bg-threat-medium/20")}>
