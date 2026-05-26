@@ -12,6 +12,7 @@ from app.core.config import get_settings
 from app.core.database import engine, Base
 from app.core.redis_client import get_redis, close_redis
 from app.core.rate_limiter import limiter, rate_limit_exceeded_handler
+from app.core.logging import configure_logging, RequestLoggingMiddleware
 
 from app.api.health     import router as health_router
 from app.api.auth       import router as auth_router
@@ -30,15 +31,21 @@ from app.api.engineer   import router as engineer_router
 from app.api.rooms      import router as rooms_router
 from app.simulation.telemetry_broadcaster import start_telemetry_broadcaster
 
+# Configure structured logging before anything else
+configure_logging()
 logger   = structlog.get_logger()
 settings = get_settings()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("skyforge.startup", version=settings.app_version, env=settings.environment)
+    logger.info(
+        "skyforge.startup",
+        version     = settings.app_version,
+        environment = settings.environment,
+        debug       = settings.debug,
+    )
     async with engine.begin() as conn:
-        # create_all only for dev; production uses alembic migrations
         if not settings.is_production:
             await conn.run_sync(Base.metadata.create_all)
     await get_redis()
@@ -61,30 +68,46 @@ app = FastAPI(
     lifespan    = lifespan,
 )
 
-# ── Rate limiting ────────────────────────────────────────────────
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
-app.add_middleware(SlowAPIMiddleware)
+# ── Middleware (order matters — first added = outermost) ──────────
 
-# ── CORS — env-aware ─────────────────────────────────────────────
+# 1. Request logging (outermost — captures all)
+app.add_middleware(RequestLoggingMiddleware)
+
+# 2. CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins     = settings.cors_origins,
     allow_credentials = True,
     allow_methods     = ["*"],
     allow_headers     = ["*"],
+    expose_headers    = ["X-Request-ID"],
 )
 
-# ── Global error handler ─────────────────────────────────────────
+# ── Rate limiting ─────────────────────────────────────────────────
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+# ── Global error handler ──────────────────────────────────────────
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error("unhandled_exception", path=request.url.path, error=str(exc), exc_info=exc)
+    from app.core.logging import get_request_id
+    logger.error(
+        "unhandled_exception",
+        path       = request.url.path,
+        request_id = get_request_id(),
+        error      = str(exc),
+        exc_info   = exc,
+    )
     return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error"},
+        status_code = 500,
+        content     = {
+            "detail":     "Internal server error",
+            "request_id": get_request_id(),
+        },
     )
 
-# ── Routers ──────────────────────────────────────────────────────
+# ── Routers ───────────────────────────────────────────────────────
 app.include_router(health_router,    prefix="/api",            tags=["system"])
 app.include_router(auth_router,      prefix="/api/auth",       tags=["auth"])
 app.include_router(fleet_router,     prefix="/api/fleet",      tags=["fleet"])

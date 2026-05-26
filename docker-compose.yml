@@ -1,33 +1,40 @@
+# SKYFORGE — Development compose
+# Usage: docker-compose up --build
+
 version: '3.9'
 
 services:
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context:    ./frontend
+      dockerfile: Dockerfile.dev
     ports:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - NEXT_PUBLIC_WS_URL=ws://localhost:8000
+      - NEXT_PUBLIC_CESIUM_TOKEN=${NEXT_PUBLIC_CESIUM_TOKEN:-}
     volumes:
       - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
     depends_on:
       - backend
     networks:
       - skyforge-net
+    restart: unless-stopped
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context:    ./backend
+      dockerfile: Dockerfile.dev
     ports:
       - "8000:8000"
     environment:
       - DATABASE_URL=postgresql+asyncpg://skyforge:skyforge@postgres:5432/skyforge
       - REDIS_URL=redis://redis:6379
-      - SECRET_KEY=dev-secret-change-in-production
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-change-in-production}
       - ENVIRONMENT=development
+      - ALLOWED_ORIGINS=http://localhost:3000
     volumes:
       - ./backend:/app
     depends_on:
@@ -37,38 +44,42 @@ services:
         condition: service_healthy
     networks:
       - skyforge-net
+    restart: unless-stopped
 
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: skyforge
+      POSTGRES_USER:     skyforge
       POSTGRES_PASSWORD: skyforge
-      POSTGRES_DB: skyforge
+      POSTGRES_DB:       skyforge
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U skyforge"]
+      test:     ["CMD-SHELL", "pg_isready -U skyforge"]
       interval: 5s
-      timeout: 5s
-      retries: 5
+      timeout:  5s
+      retries:  5
     networks:
       - skyforge-net
+    restart: unless-stopped
 
   redis:
     image: redis:7-alpine
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test:     ["CMD", "redis-cli", "ping"]
       interval: 5s
-      timeout: 5s
-      retries: 5
+      timeout:  5s
+      retries:  5
     networks:
       - skyforge-net
+    restart: unless-stopped
 
 volumes:
   postgres_data:
