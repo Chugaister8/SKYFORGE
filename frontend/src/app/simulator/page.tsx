@@ -48,6 +48,17 @@ export default function SimulatorPage() {
   const [autopilot,    setAutopilot]    = useState(false);
   const [injectedFailure, setInjectedFailure] = useState<any>(null);
 
+  // Send threat alerts to dashboard
+  useEffect(() => {
+    if (sim.ewState.radar_lock) {
+      useEventStore.getState().emit("ALERT", {
+        type: "THREAT", severity: "critical",
+        title: "RADAR LOCK",
+        message: `${sim.ewState.threat_level} threat — simulator active`,
+      });
+    }
+  }, [sim.ewState.radar_lock]);
+
   // Read injected failure from event bus
   const failureEvent = useEventStore(s => s.last("FAILURE_INJECTED"));
   useEffect(() => {

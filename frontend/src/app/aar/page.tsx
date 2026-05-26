@@ -150,6 +150,7 @@ export default function AARPage() {
           <div className="p-3 border-t border-border-dim bg-bg-surface">
             <ReplayControls
               playing={state.playing} time_s={state.time_s} duration={state.duration}
+              events={state.events}
               onPlay={play} onPause={pause} onSeek={seek} onReset={reset}/>
           </div>
         )}
