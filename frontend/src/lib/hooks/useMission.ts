@@ -1,3 +1,4 @@
+import { toast } from "@/components/ui/Toast";
 import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -196,9 +197,11 @@ export function useMission() {
         setMission(m => ({ ...m, id: res.id, offline: false }));
         await cacheMission({ ...body, id: res.id, status: "DRAFT", score: 0, created_at: new Date().toISOString() });
       }
+      toast.success('Mission saved');
       setMission(m => ({ ...m, saving: false, saved: true }));
       qc.invalidateQueries({ queryKey: ["missions"] });
     } catch {
+      toast.error('Save failed — check connection');
       setMission(m => ({ ...m, saving: false }));
     }
   }, [token, mission, qc, online]);
@@ -234,6 +237,7 @@ export function useMission() {
       await api.delete(`/missions/${id}`, token);
     }
     await removeCachedMission(id);
+    toast.success('Mission deleted');
     qc.invalidateQueries({ queryKey: ["missions"] });
     if (mission.id === id) setMission(DEFAULT);
   }, [token, mission.id, qc]);

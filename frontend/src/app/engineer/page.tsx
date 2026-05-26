@@ -146,7 +146,7 @@ export default function EngineerPage() {
   const [flightHrs,  setFlightHrs]  = useState(1.0);
   const [simResult,  setSimResult]  = useState<any>(null);
 
-  const { data, isLoading } = useQuery<{ failures:Failure[]; categories:string[] }>({
+  const { data, isLoading, isError } = useQuery<{ failures:Failure[]; categories:string[] }>({
     queryKey: ["failures", category],
     queryFn:  () => api.get(
       category !== "ALL" ? `/engineer/failures?category=${category}` : "/engineer/failures",
@@ -185,6 +185,11 @@ export default function EngineerPage() {
 
   return (
     <div className="p-4 md:p-5 space-y-5 max-w-[1200px]">
+      {isError && (
+        <div className="mb-4 flex items-center gap-2 p-3 rounded border border-threat-high/40 bg-threat-high/5 font-mono text-xs text-threat-high">
+          <span>⚠ Failed to load data — check your connection and try refreshing.</span>
+        </div>
+      )}
       {/* Header */}
       <div>
         <p className="font-mono text-2xs text-text-secondary tracking-widest mb-0.5">ENGINEER</p>

@@ -1,3 +1,4 @@
+import { toast } from "@/components/ui/Toast";
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -65,7 +66,7 @@ export default function FleetPage() {
   const [showForm, setShowForm] = useState(false);
 
   const [limit, setLimit] = useState(24);
-  const { data: fleet, isLoading } = useFleet(limit, tab !== "ALL" ? tab : undefined);
+  const { data: fleet, isLoading, isError } = useFleet(limit, tab !== "ALL" ? tab : undefined);
   const { data: stats, isLoading: sl } = useFleetStats();
   const snapshots = useTelemetryStore(s => s.snapshots);
   const deleteUAV = useDeleteUAV();
@@ -75,12 +76,18 @@ export default function FleetPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Remove this UAV from fleet?")) return;
-    deleteUAV.mutate(id);
+    deleteUAV.mutate(id, {
+      onSuccess: () => toast.success("UAV removed"),
+      onError:   (e:any) => toast.error("Delete failed", e?.message),
+    });
   };
 
   const handleToggleOnline = (uav: any) => {
     const next = uav.status === "ONLINE" ? "OFFLINE" : "ONLINE";
-    updateUAV.mutate({ id: uav.id, status: next });
+    updateUAV.mutate({ id: uav.id, status: next }, {
+      onSuccess: () => toast.info(`${uav.callsign} set ${next}`),
+      onError:   (e:any) => toast.error("Update failed", e?.message),
+    });
   };
 
   const handleSimulate = (uav: any) => {
@@ -90,6 +97,11 @@ export default function FleetPage() {
 
   return (
     <div className="p-4 md:p-5 space-y-4 max-w-[1400px]">
+      {isError && (
+        <div className="mb-4 flex items-center gap-2 p-3 rounded border border-threat-high/40 bg-threat-high/5 font-mono text-xs text-threat-high">
+          <span>⚠ Failed to load data — check your connection and try refreshing.</span>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

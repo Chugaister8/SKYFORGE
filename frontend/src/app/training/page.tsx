@@ -27,6 +27,11 @@ export default function TrainingPage(){
   if(selected){
     const course=courses.find(c=>c.id===selected);
     if(course) return(<div className="h-full max-w-2xl mx-auto p-4">
+      {isError && (
+        <div className="mb-4 flex items-center gap-2 p-3 rounded border border-threat-high/40 bg-threat-high/5 font-mono text-xs text-threat-high">
+          <span>⚠ Failed to load data — check your connection and try refreshing.</span>
+        </div>
+      )}
       <CourseDetail course={course} progress={progressMap[course.id]??null} onBack={()=>setSelected(null)} onStart={()=>start.mutate(course.id)}/>
     </div>);
   }
@@ -63,7 +68,7 @@ export default function TrainingPage(){
       {cL?(<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         {[1,2,3,4,5,6].map(i=><SkeletonCard key={i}/>)}
       </div>):(<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-        {courses.map(course=>(<CourseCard key={course.id} course={course} completed={certs.some(c=>c.course_id===course.id)} onClick={()=>setSelected(course.id)}/>))}
+        {courses.map(course=>(<CourseCard progress={progressMap[course.id]?.progress_pct} key={course.id} course={course} completed={certs.some(c=>c.course_id===course.id)} onClick={()=>setSelected(course.id)}/>))}
       </div>)}
     </div>)}
 

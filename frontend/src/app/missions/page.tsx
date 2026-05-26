@@ -26,7 +26,7 @@ export default function MissionsPage() {
     addSite, analyzeThreat, saveMission, loadMission, deleteMission, clear,
   } = useMission();
 
-  const { data: savedData, isLoading: savedLoading } = useSavedMissions();
+  const { data: savedData, isLoading: savedLoading, isError: savedError } = useSavedMissions();
   const savedMissions = savedData?.data ?? [];
 
   const handleExport = () => {
@@ -140,7 +140,8 @@ export default function MissionsPage() {
                 {savedLoading
                   ? <SkeletonList count={3} />
                   : savedMissions.length===0
-                  ? <p className="p-3 font-mono text-2xs text-text-dim text-center">No saved missions</p>
+                  savedError ? <p className="p-3 font-mono text-2xs text-threat-high text-center">Failed to load — retry?</p>
+                  : savedData?.data?.length === 0 ? <p className="p-3 font-mono text-2xs text-text-dim text-center">No saved missions</p>
                   : savedMissions.map(m => (
                     <div key={m.id} className="flex items-center gap-2 px-2.5 py-2 border-b border-border-dim last:border-0 hover:bg-bg-surface transition-colors">
                       <button onClick={()=>{loadMission(m);setShowLoad(false);}} className="flex-1 text-left">

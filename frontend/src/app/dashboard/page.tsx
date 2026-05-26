@@ -12,14 +12,15 @@ import { useAuthStore } from "@/lib/store/auth.store";
 import { clsx } from "clsx";
 
 export default function DashboardPage() {
-  const { data: stats,   isLoading: statsLoading } = useFleetStats();
-  const { data: missions } = useSavedMissions(10);
+  const { data: stats,   isLoading: statsLoading, isError: statsError } = useFleetStats();
+  const { data: missions, isError: missionsError } = useSavedMissions(10);
   const snapshots  = useTelemetryStore(s => s.snapshots);
   const wsState    = useTelemetryStore(s => s.wsState);
   const { user }   = useAuthStore();
 
   const completedMissions = missions?.data?.filter(m => m.status === "COMPLETED").length ?? 0;
-  const wsOk = wsState === "connected";
+  const wsOk    = wsState === "connected";
+  const hasError = statsError || missionsError;
 
   return (
     <div className="p-4 md:p-5 space-y-4 max-w-[1600px]">
@@ -29,6 +30,12 @@ export default function DashboardPage() {
           <p className="font-mono text-2xs text-text-secondary tracking-widest mb-0.5">OVERVIEW</p>
           <h1 className="font-mono text-base text-text-primary tracking-wide">Mission Control</h1>
         </div>
+        {hasError && (
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded border border-threat-high/40 bg-threat-high/5 text-threat-high font-mono text-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-threat-high"/>
+            API ERROR
+          </div>
+        )}
         <div className={clsx(
           "flex items-center gap-1.5 px-2.5 py-1 rounded border font-mono text-2xs",
           wsOk

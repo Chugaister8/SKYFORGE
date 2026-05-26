@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRoom, RoomInfo } from "@/lib/hooks/useRoom";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { useTelemetryStore } from "@/lib/store/telemetry.store";
@@ -13,6 +13,80 @@ import {
 const ROLE_ICONS:Record<string,any>={HOST:Crown,PILOT:Crosshair,OBSERVER:Eye,COMMANDER:Shield};
 const ROLE_CLR:Record<string,string>={HOST:"text-threat-medium",PILOT:"text-cyan-DEFAULT",OBSERVER:"text-text-secondary",COMMANDER:"text-purple-400"};
 const STATE_CLR:Record<string,string>={LOBBY:"text-text-secondary",BRIEFING:"text-threat-medium",ACTIVE:"text-threat-low",DEBRIEF:"text-cyan-DEFAULT"};
+
+
+// ── Tactical map for multiplayer room ────────────────────────────
+function MultiplayerMap({ members, myId, roomState }: {
+  members: any[]; myId: string; roomState: string;
+}) {
+  const mapRef     = useRef<HTMLDivElement>(null);
+  const leafletMap = useRef<any>(null);
+  const markersRef = useRef<Map<string,any>>(new Map());
+
+  useEffect(() => {
+    if (typeof window==="undefined"||leafletMap.current||!mapRef.current) return;
+    import("leaflet").then(L => {
+      const Lx = L.default;
+      delete (Lx.Icon.Default.prototype as any)._getIconUrl;
+      const map = Lx.map(mapRef.current!, {
+        center:[48.3794,31.1656], zoom:10,
+        zoomControl:true, attributionControl:false,
+      });
+      Lx.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{maxZoom:19}).addTo(map);
+      leafletMap.current = map;
+      (leafletMap as any).L = Lx;
+    });
+    return () => { leafletMap.current?.remove(); leafletMap.current=null; };
+  },[]);
+
+  useEffect(() => {
+    const map = leafletMap.current;
+    const Lx  = (leafletMap as any).L;
+    if (!map||!Lx) return;
+    members.filter(m=>m.position?.lat!=null).forEach(m => {
+      const isMe = m.user_id===myId;
+      const color = isMe ? "#06B6D4" :
+        m.role==="HOST" ? "#F59E0B" :
+        m.role==="COMMANDER" ? "#A78BFA" : "#10B981";
+      const icon = Lx.divIcon({
+        html: `<div style="width:10px;height:10px;background:${color};border:2px solid rgba(255,255,255,0.5);border-radius:50%;box-shadow:0 0 8px ${color}88"></div><div style="font-family:monospace;font-size:9px;color:${color};margin-top:2px;white-space:nowrap">${m.username}</div>`,
+        className:"", iconSize:[60,24], iconAnchor:[5,5],
+      });
+      if (markersRef.current.has(m.user_id)) {
+        const mk = markersRef.current.get(m.user_id);
+        mk.setLatLng([m.position.lat,m.position.lon]);
+        mk.setIcon(icon);
+      } else {
+        const mk = Lx.marker([m.position.lat,m.position.lon],{icon})
+          .addTo(map)
+          .bindTooltip(`<span style="font-family:monospace;font-size:10px">${m.username} · ${m.role}<br/>Alt: ${m.position.alt_m?.toFixed(0)}m</span>`);
+        markersRef.current.set(m.user_id,mk);
+      }
+    });
+    // Remove stale markers
+    const activeIds = new Set(members.map(m=>m.user_id));
+    markersRef.current.forEach((_,uid) => {
+      if (!activeIds.has(uid)) {
+        markersRef.current.get(uid)?.remove();
+        markersRef.current.delete(uid);
+      }
+    });
+  },[members]);
+
+  return (
+    <div className="relative w-full h-full">
+      <div ref={mapRef} className="w-full h-full"/>
+      <div className="absolute top-2 left-2 z-[1000] pointer-events-none flex items-center gap-1.5">
+        <span className="font-mono text-2xs text-cyan-DEFAULT bg-bg-base/80 px-1.5 py-0.5 rounded">
+          TACTICAL · {roomState}
+        </span>
+        <span className="font-mono text-2xs text-text-dim bg-bg-base/80 px-1.5 py-0.5 rounded">
+          {members.length} connected
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export default function MultiplayerPage(){
   const{user}=useAuthStore();
@@ -139,31 +213,9 @@ export default function MultiplayerPage(){
           </div>
         </div>
 
-        {/* Center — map placeholder / mission view */}
-        <div className="flex-1 flex flex-col bg-bg-base">
-          <div className="flex-1 relative flex items-center justify-center">
-            <div className="text-center space-y-3">
-              <div className="w-20 h-20 rounded-full bg-bg-surface border border-border-dim flex items-center justify-center mx-auto">
-                <MapPin className="w-8 h-8 text-text-dim" strokeWidth={1}/>
-              </div>
-              <p className="font-mono text-xs text-text-secondary">
-                {room.state==="ACTIVE"?"Mission in progress — Cesium globe loads here":"Waiting in lobby"}
-              </p>
-              <p className="font-mono text-2xs text-text-dim">
-                {room.members.length} operator{room.members.length!==1?"s":""} connected
-              </p>
-              {/* Position badges */}
-              <div className="flex flex-wrap gap-2 justify-center max-w-xs">
-                {room.members.filter(m=>m.position).map(m=>(
-                  <div key={m.user_id} className={clsx("flex items-center gap-1.5 px-2 py-1 rounded border font-mono text-2xs",
-                    m.user_id===session.myId?"border-border-active text-cyan-DEFAULT":"border-border-dim text-text-secondary")}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-current inline-block"/>
-                    {m.username} {m.position.alt_m.toFixed(0)}m
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+        {/* Center — live tactical map */}
+        <div className="flex-1 flex flex-col bg-bg-base overflow-hidden">
+          <MultiplayerMap members={room.members} myId={session.myId} roomState={room.state}/>
         </div>
 
         {/* Right — chat */}

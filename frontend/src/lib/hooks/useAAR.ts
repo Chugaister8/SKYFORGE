@@ -208,21 +208,19 @@ export function useAAR() {
           duration: log.duration_s ?? metrics.duration_s,
           missionId, missionName, loading:false });
       } else {
-        // No flight log yet — use mock
-        const mock = makeMockAAR(missionName);
-        setState({ ...mock, playing:false, time_s:0,
-          duration: mock.metrics.duration_s, missionId, missionName, loading:false });
+        // No flight log yet — show empty state (mission not flown)
+        setState(s => ({ ...s, events:[], metrics:null, track:[],
+          duration:0, missionId, missionName, loading:false }));
       }
-    } catch {
-      const mock = makeMockAAR(missionName);
-      setState({ ...mock, playing:false, time_s:0,
-        duration: mock.metrics.duration_s, missionId, missionName, loading:false });
+    } catch (e) {
+      setState(s => ({ ...s, events:[], metrics:null, track:[],
+        duration:0, missionId, missionName, loading:false }));
     }
   }, [token]);
 
   /** Load demo mission (no DB). */
   const loadDemo = useCallback((name: string) => {
-    const mock = makeMockAAR(name);
+    const mock = makeMockAAR(name); // explicit demo
     setState({ ...mock, playing:false, time_s:0,
       duration: mock.metrics.duration_s, missionId:null, missionName:name, loading:false });
   }, []);

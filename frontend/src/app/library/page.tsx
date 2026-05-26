@@ -115,10 +115,15 @@ function Section({ title, children }: { title:string; children:React.ReactNode }
 
 // ── Detail panel ─────────────────────────────────────────────────
 function DetailPanel({ id, onClose }: { id:string; onClose:()=>void }) {
-  const { data, isLoading } = useLibraryUnit(id);
+  const { data, isLoading, isError } = useLibraryUnit(id);
 
   if (isLoading) return (
     <div className="p-4 space-y-3">
+      {isError && (
+        <div className="mb-4 flex items-center gap-2 p-3 rounded border border-threat-high/40 bg-threat-high/5 font-mono text-xs text-threat-high">
+          <span>⚠ Failed to load data — check your connection and try refreshing.</span>
+        </div>
+      )}
       <div className="h-16 bg-bg-raised rounded animate-pulse"/>
       <div className="h-4 bg-bg-raised rounded w-3/4 animate-pulse"/>
       {[1,2,3].map(i=><div key={i} className="h-24 bg-bg-raised rounded animate-pulse"/>)}

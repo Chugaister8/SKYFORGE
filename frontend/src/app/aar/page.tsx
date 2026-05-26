@@ -107,6 +107,7 @@ export default function AARPage() {
           ) : (
             <div className="flex items-center justify-center h-40">
               <p className="font-mono text-xs text-text-dim">Select a mission to review</p>
+              <p className="font-mono text-2xs text-text-dim mt-1">Click a saved mission or demo above</p>
             </div>
           )}
         </div>
@@ -200,7 +201,8 @@ export default function AARPage() {
               </div>
             ) : (
               <div className="flex items-center justify-center h-32">
-                <p className="font-mono text-xs text-text-dim">No mission loaded</p>
+                <p className="font-mono text-xs text-threat-medium">No flight log recorded</p>
+                <p className="font-mono text-2xs text-text-dim mt-1 leading-relaxed text-center max-w-[160px]">Fly this mission in the Simulator first to generate an AAR</p>
               </div>
             )
           ) : (
