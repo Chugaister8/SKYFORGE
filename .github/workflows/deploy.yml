@@ -1,0 +1,123 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+    tags:     ['v*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required:    true
+        default:     production
+        type:        choice
+        options:     [production, staging]
+
+concurrency:
+  group:  deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy — ${{ inputs.environment || 'production' }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'production' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id:   meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository }}/backend
+            ghcr.io/${{ github.repository }}/frontend
+          tags: |
+            type=sha,prefix=sha-
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build + push backend
+        uses: docker/build-push-action@v5
+        with:
+          context:   ./backend
+          push:      true
+          tags:      ghcr.io/${{ github.repository }}/backend:${{ github.sha }}
+          cache-from:type=gha
+          cache-to:  type=gha,mode=max
+
+      - name: Build + push frontend
+        uses: docker/build-push-action@v5
+        with:
+          context:   ./frontend
+          push:      true
+          tags:      ghcr.io/${{ github.repository }}/frontend:${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://${{ secrets.DOMAIN }}
+            NEXT_PUBLIC_CESIUM_TOKEN=${{ secrets.CESIUM_TOKEN }}
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host:     ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key:      ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/skyforge
+
+            # Pull new images
+            echo "${{ secrets.GITHUB_TOKEN }}" | \
+              docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            docker pull ghcr.io/${{ github.repository }}/backend:${{ github.sha }}
+            docker pull ghcr.io/${{ github.repository }}/frontend:${{ github.sha }}
+
+            # Update .env with new image tags
+            export IMAGE_TAG=${{ github.sha }}
+            sed -i "s/BACKEND_IMAGE=.*/BACKEND_IMAGE=ghcr.io\/${{ github.repository }}\/backend:${IMAGE_TAG}/" .env
+            sed -i "s/FRONTEND_IMAGE=.*/FRONTEND_IMAGE=ghcr.io\/${{ github.repository }}\/frontend:${IMAGE_TAG}/" .env
+
+            # Rolling restart (zero-downtime)
+            docker-compose -f docker-compose.yml -f docker-compose.prod.yml \
+              up -d --no-deps backend
+
+            # Run migrations
+            docker-compose -f docker-compose.yml -f docker-compose.prod.yml \
+              exec -T backend alembic upgrade head
+
+            # Replace frontend
+            docker-compose -f docker-compose.yml -f docker-compose.prod.yml \
+              up -d --no-deps frontend
+
+            # Health check
+            sleep 10
+            curl -f https://${{ secrets.DOMAIN }}/api/health || exit 1
+
+            echo "✅ Deploy complete — ${{ github.sha }}"
+
+      - name: Notify on failure
+        if:   failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner:   context.repo.owner,
+              repo:    context.repo.repo,
+              body:    `❌ Deploy failed for commit ${context.sha.substring(0,7)}`
+            })
