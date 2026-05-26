@@ -1,7 +1,8 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
+import { useEventStore } from "@/lib/store/event.store";
 import { useRouter } from "next/navigation";
-import { useSimulator } from "@/lib/hooks/useSimulator";
+import { useSimulatorWS as useSimulator } from "@/lib/hooks/useSimulatorWS";
 import { useSavedMissions } from "@/lib/hooks/useMission";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { api } from "@/lib/api";
@@ -46,19 +47,20 @@ export default function SimulatorPage() {
   const [autopilot,    setAutopilot]    = useState(false);
   const [injectedFailure, setInjectedFailure] = useState<any>(null);
 
-  // Read injected failure from Engineer page
+  // Read injected failure from event bus
+  const failureEvent = useEventStore(s => s.last("FAILURE_INJECTED"));
   useEffect(() => {
-    const raw = sessionStorage.getItem("injected_failure");
-    if (raw) {
-      try { setInjectedFailure(JSON.parse(raw)); } catch {}
-      sessionStorage.removeItem("injected_failure");
+    if (failureEvent) {
+      setInjectedFailure(failureEvent.payload as any);
+      useEventStore.getState().consume("FAILURE_INJECTED");
     }
-  }, []);
+  }, [failureEvent]);
 
   const { data: missionsData } = useSavedMissions();
   const savedMissions = missionsData?.data ?? [];
 
   const sim = useSimulator(selectedUAV, activeMission);
+  const wsConnected = (sim as any).connected ?? true;
 
   // Save AAR when mission completes
   const handleSaveAAR = useCallback(async () => {
@@ -264,6 +266,9 @@ export default function SimulatorPage() {
             className={clsx("flex items-center gap-1.5 px-2.5 py-1 rounded border font-mono text-2xs tracking-widest transition-all",
               showEW ? "border-purple-400/60 bg-purple-500/10 text-purple-400" : "border-border-dim text-text-secondary hover:text-text-primary")}>
             <AlertTriangle className="w-3 h-3" strokeWidth={1.5}/>EW
+          {!wsConnected && sim.running && (
+            <span className="font-mono text-2xs text-threat-high border border-threat-high/40 px-2 py-1 rounded">WS OFFLINE</span>
+          )}
           </button>
         </div>
 

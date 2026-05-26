@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { useEventStore } from "@/lib/store/event.store";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/lib/store/auth.store";
 import { SkeletonList } from "@/components/ui/Skeleton";
@@ -168,18 +169,18 @@ export default function EngineerPage() {
 
   // Bridge: inject failure into simulator
   const handleInjectToSim = (failure: Failure) => {
-    // Store failure in sessionStorage for simulator to pick up
-    sessionStorage.setItem("injected_failure", JSON.stringify({
-      id:            failure.id,
-      name:          failure.name,
-      thrust_loss:   failure.thrust_loss,
-      control_loss:  failure.control_loss,
-      sensor_loss:   failure.sensor_loss,
-      comms_loss:    failure.comms_loss,
-      can_continue:  failure.can_continue,
-      procedures:    failure.procedures,
-    }));
-    router.push("/simulator?failure_injected=1");
+    // Use event bus instead of sessionStorage
+    useEventStore.getState().emit("FAILURE_INJECTED", {
+      id:           failure.id,
+      name:         failure.name,
+      thrust_loss:  failure.thrust_loss,
+      control_loss: failure.control_loss,
+      sensor_loss:  failure.sensor_loss,
+      comms_loss:   failure.comms_loss,
+      can_continue: failure.can_continue,
+      procedures:   failure.procedures,
+    });
+    router.push("/simulator");
   };
 
   return (

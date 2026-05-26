@@ -6,7 +6,9 @@ import { WaypointList }      from "@/components/mission/WaypointList";
 import { MissionToolbar }    from "@/components/mission/MissionToolbar";
 import { ScenarioLoader }    from "@/components/mission/ScenarioLoader";
 import { clsx } from "clsx";
-import { Save, FolderOpen, Trash2, CheckCircle, Loader2, WifiOff } from "lucide-react";
+import { Save, FolderOpen, Trash2, CheckCircle, Loader2, WifiOff, Download, Upload } from "lucide-react";
+import { exportMissionJSON, importMissionJSON } from "@/lib/utils/missionExport";
+import { useRef } from "react";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import type { Waypoint, ThreatSite } from "@/lib/hooks/useMission";
 
@@ -26,6 +28,44 @@ export default function MissionsPage() {
 
   const { data: savedData, isLoading: savedLoading } = useSavedMissions();
   const savedMissions = savedData?.data ?? [];
+
+  const handleExport = () => {
+    if (mission.id && mission.waypoints.length > 0) {
+      exportMissionJSON({
+        id: mission.id ?? "draft",
+        name: mission.name,
+        waypoints: mission.waypoints,
+        threat_sites: mission.sites,
+        uav_rcs: mission.uav_rcs,
+        uav_speed: mission.uav_speed,
+        overall_risk: mission.overall_risk,
+        status: "DRAFT",
+        score: 0,
+        created_at: new Date().toISOString(),
+      } as any);
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const result = await importMissionJSON(file);
+    if (result.ok && result.mission) {
+      setMission(m => ({
+        ...m,
+        name:         result.mission!.name ?? m.name,
+        waypoints:    (result.mission!.waypoints ?? []) as any,
+        sites:        (result.mission!.threat_sites ?? []) as any,
+        uav_rcs:      result.mission!.uav_rcs  ?? m.uav_rcs,
+        uav_speed:    result.mission!.uav_speed ?? m.uav_speed,
+        overall_risk: result.mission!.overall_risk ?? 0,
+        saved: false, id: null,
+      }));
+    } else {
+      alert(`Import failed: ${result.error}`);
+    }
+    e.target.value = "";
+  };
 
   const moveUp   = useCallback((idx:number) => {
     setMission(m => { if(idx===0) return m; const w=[...m.waypoints];[w[idx-1],w[idx]]=[w[idx],w[idx-1]];return{...m,waypoints:w}; });

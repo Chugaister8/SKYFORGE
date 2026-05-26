@@ -226,7 +226,7 @@ export default function FleetPage() {
                   </span>
                   {uav.has_eo    && <Eye         className="w-3 h-3 text-text-secondary" strokeWidth={1.5}/>}
                   {uav.has_ir    && <Thermometer className="w-3 h-3 text-text-secondary" strokeWidth={1.5}/>}
-                  {(uav as any).has_lidar && <Layers className="w-3 h-3 text-text-secondary" strokeWidth={1.5}/>}
+                  {uav.has_lidar && <Layers className="w-3 h-3 text-text-secondary" strokeWidth={1.5}/>}
                 </div>
 
                 {/* Specs */}
