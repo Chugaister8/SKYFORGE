@@ -18,6 +18,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.core.security import decode_token
 from app.core.config import get_settings
 from app.api.simulation import EWInfluence, _apply_ew_to_control, _apply_ew_to_state
+from app.core.metrics import inc_sim_step, inc_sim_ws
 from app.simulation.physics.base import PhysicsState, ControlInput
 
 logger   = structlog.get_logger()
@@ -57,6 +58,7 @@ async def simulator_ws(ws: WebSocket):
         return
 
     await ws.send_text(json.dumps({"type": "connected", "user_id": user_id}))
+    inc_sim_ws(1)
     logger.info("ws.simulator.connected", user_id=user_id)
 
     # Session state
@@ -133,6 +135,7 @@ async def simulator_ws(ws: WebSocket):
 
                         cmd       = _apply_ew_to_control(cmd, ew, dt)
                         new_state = physics.step(state, cmd, dt)
+                        inc_sim_step()
                         new_state = _apply_ew_to_state(new_state, ew, dt)
                         state     = new_state
 
@@ -162,4 +165,5 @@ async def simulator_ws(ws: WebSocket):
         logger.error("ws.simulator.error", user_id=user_id, error=str(e))
     finally:
         hb_task.cancel()
+        inc_sim_ws(-1)
         logger.info("ws.simulator.disconnected", user_id=user_id)

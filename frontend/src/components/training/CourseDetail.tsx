@@ -5,7 +5,8 @@ import {
   ChevronLeft, Play, CheckCircle, Clock, Award, BookOpen,
   Cpu, HelpCircle, Wrench, Loader2, Lock,
 } from "lucide-react";
-import { QuizEngine } from "./QuizEngine";
+import { QuizEngine }      from "./QuizEngine";
+import { PracticalModule } from "./PracticalModule";
 import {
   useCourse, useStartCourse, useCompleteModule, useCertify,
 } from "@/lib/hooks/useTraining";
@@ -51,6 +52,9 @@ export function CourseDetail({ course, onBack }: Props) {
   const completed  = progress?.completed ?? false;
   const score      = progress?.score ?? 0;
 
+  const [practicalModule, setPracticalModule] = useState<{
+    id: string; title: string; passScore: number;
+  } | null>(null);
   const [quizModule, setQuizModule] = useState<{
     id: string; title: string; passScore: number;
   } | null>(null);
@@ -59,6 +63,14 @@ export function CourseDetail({ course, onBack }: Props) {
 
   const handleStart = async () => {
     if (!progress) await startCourse.mutateAsync(course.id);
+  };
+
+  const handlePracticalComplete = async (moduleId: string, s: number, g: string, timeS: number) => {
+    setPracticalModule(null);
+    await completeModule.mutateAsync({
+      courseId: course.id, moduleId, score: s, timeSpentS: timeS,
+    });
+    refetch();
   };
 
   const handleQuizComplete = async (moduleId: string, s: number, _g: string, timeS: number) => {
@@ -85,6 +97,20 @@ export function CourseDetail({ course, onBack }: Props) {
       alert(e.message ?? "Certification failed");
     }
   };
+
+  // Show practical module
+  if (practicalModule) {
+    return (
+      <PracticalModule
+        courseId={course.id}
+        moduleId={practicalModule.id}
+        moduleTitle={practicalModule.title}
+        passScore={practicalModule.passScore}
+        onBack={() => setPracticalModule(null)}
+        onComplete={(s, g, timeS) => handlePracticalComplete(practicalModule.id, s, g, timeS)}
+      />
+    );
+  }
 
   // Show quiz
   if (quizModule) {
@@ -285,7 +311,9 @@ export function CourseDetail({ course, onBack }: Props) {
               disabled={!unlocked || completeModule.isPending}
               onClick={() => {
                 if (!unlocked) return;
-                if (isAssessment) {
+                if (mod.type === "practical") {
+                  setPracticalModule({ id: mod.id, title: mod.title, passScore: mod.pass_score ?? 70 });
+                } else if (mod.type === "quiz") {
                   setQuizModule({ id: mod.id, title: mod.title, passScore: mod.pass_score ?? 70 });
                 } else {
                   setTheoryModule(mod.id);

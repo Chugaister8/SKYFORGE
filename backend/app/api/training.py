@@ -1,4 +1,5 @@
 import structlog, random, string
+from app.core.metrics import inc_quiz_completed, inc_cert_issued
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -316,6 +317,7 @@ async def certify(
     db.add(cert)
     await db.commit()
     await db.refresh(cert)
+    inc_cert_issued()
     logger.info("training.cert_issued", user=current_user.id, course=cid,
                 cert=cert.cert_number, grade=cert.grade)
     return {

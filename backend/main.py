@@ -30,6 +30,7 @@ from app.api.scenarios  import router as scenarios_router
 from app.api.engineer   import router as engineer_router
 from app.api.rooms      import router as rooms_router
 from app.api.ws_simulator import router as ws_sim_router
+from app.api.push        import router as push_router
 from app.simulation.telemetry_broadcaster import start_telemetry_broadcaster
 
 # Configure structured logging before anything else
@@ -125,3 +126,4 @@ app.include_router(engineer_router,  prefix="/api/engineer",   tags=["engineer"]
 app.include_router(rooms_router,     prefix="/api/rooms",      tags=["rooms"])
 app.include_router(ws_router,                                  tags=["websocket"])
 app.include_router(ws_sim_router,                              tags=["websocket"])
+app.include_router(push_router,      prefix="/api/push",       tags=["push"])

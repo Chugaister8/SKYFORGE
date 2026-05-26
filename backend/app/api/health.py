@@ -56,3 +56,16 @@ async def verify_cert_public(cert_number: str):
     """Redirect-style alias for certificate verification."""
     from fastapi.responses import RedirectResponse
     return RedirectResponse(url=f"/api/training/verify/{cert_number}")
+
+
+@router.get("/metrics")
+async def prometheus_metrics():
+    """
+    Prometheus-compatible metrics endpoint.
+    Scrape with: prometheus.yml → scrape_configs target: backend:8000
+    """
+    from fastapi.responses import PlainTextResponse
+    from app.core.metrics import render_prometheus, set_active_rooms
+    from app.core.room_manager import room_manager
+    set_active_rooms(len(room_manager.list_rooms()))
+    return PlainTextResponse(content=render_prometheus(), media_type="text/plain; version=0.0.4")

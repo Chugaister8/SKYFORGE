@@ -68,6 +68,7 @@ const inputCls = "bg-bg-base border border-border-dim rounded px-3 py-1.5 font-m
 export default function SettingsPage() {
   const { user, accessToken:token, setAuth, refreshToken, expiresAt } = useAuthStore();
   const [section, setSection] = useState<Section>("profile");
+  const push = usePushNotifications();
   const [saving,  setSaving]  = useState(false);
   const [saved,   setSaved]   = useState(false);
   const [error,   setError]   = useState("");
@@ -286,6 +287,16 @@ export default function SettingsPage() {
               </div>
               <Row label="Threat detected" hint="Radar warning / lock alerts">
                 <Toggle value={alertThreat} onChange={setAlertThreat}/>
+            </Row>
+            <Row label="Browser notifications" hint="Push alerts when tab is inactive">
+              {push.permission === "granted" ? (
+                <Toggle value={push.subscribed} onChange={v => v ? push.subscribe() : push.unsubscribe()}/>
+              ) : (
+                <button onClick={push.requestPermission}
+                  className="font-mono text-2xs text-cyan-DEFAULT border border-border-active bg-cyan-subtle px-3 py-1 rounded tracking-widest hover:shadow-cyan-sm transition-all">
+                  ENABLE
+                </button>
+              )}
               </Row>
               <Row label="Low battery" hint="Below 20% remaining">
                 <Toggle value={alertBattery} onChange={setAlertBattery}/>

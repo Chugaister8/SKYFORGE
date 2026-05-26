@@ -1,6 +1,7 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
-import { useEventStore } from "@/lib/store/event.store";
+import { useEventStore }          from "@/lib/store/event.store";
+import { usePushNotifications }   from "@/lib/hooks/usePushNotifications";
 import { useRouter } from "next/navigation";
 import { useSimulatorWS as useSimulator } from "@/lib/hooks/useSimulatorWS";
 import { useSavedMissions } from "@/lib/hooks/useMission";
@@ -59,8 +60,18 @@ export default function SimulatorPage() {
   const { data: missionsData } = useSavedMissions();
   const savedMissions = missionsData?.data ?? [];
 
-  const sim = useSimulator(selectedUAV, activeMission);
+  const sim  = useSimulator(selectedUAV, activeMission);
+  const push = usePushNotifications();
   const wsConnected = (sim as any).connected ?? true;
+
+  // Local push notification on threat detection
+  const prevRadarRef = useState(false);
+  useEffect(() => {
+    if (sim.ewState.radar_warning && !prevRadarRef[0]) {
+      push.notify("⚠️ RADAR DETECTED", `Threat level: ${sim.ewState.threat_level}`, "skyforge-threat");
+    }
+    prevRadarRef[1](sim.ewState.radar_warning);
+  }, [sim.ewState.radar_warning]);
 
   // Save AAR when mission completes
   const handleSaveAAR = useCallback(async () => {
