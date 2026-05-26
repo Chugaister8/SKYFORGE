@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useLibrary, useLibraryUnit } from "@/lib/hooks/useLibrary";
 import { SkeletonList } from "@/components/ui/Skeleton";
 import { Search, ChevronRight, Shield, Radio, Truck, Plane, Crosshair, X } from "lucide-react";
@@ -295,11 +295,16 @@ export default function LibraryPage() {
     (handleSearch as any)._t = setTimeout(() => setDebouncedSearch(v), 250);
   }, []);
 
+  const [limit, setLimit] = useState(50);
+
+  // Reset limit when filters change
+  useEffect(() => setLimit(50), [category, faction, debouncedSearch]);
+
   const { data, isLoading } = useLibrary(
     category !== "ALL" ? category : undefined,
     faction  !== "ALL" ? faction  : undefined,
     debouncedSearch || undefined,
-    100,
+    limit,
   );
 
   const units = data?.units ?? [];
@@ -404,6 +409,15 @@ export default function LibraryPage() {
                 onClick={() => setSelected(u.id === selected ? null : u.id)}
               />
             ))
+          )}
+          {/* Load more */}
+          {data?.has_more && (
+            <button
+              onClick={() => setLimit(l => l + 50)}
+              className="w-full py-2 font-mono text-2xs text-text-secondary hover:text-text-primary border border-border-dim rounded hover:border-border-active transition-all mt-1"
+            >
+              LOAD MORE ({(data.total ?? 0) - (data.units?.length ?? 0)} remaining)
+            </button>
           )}
         </div>
       </div>

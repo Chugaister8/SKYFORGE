@@ -1,19 +1,21 @@
 "use client";
 import { useEffect, useState } from "react";
-import { WifiOff, Wifi } from "lucide-react";
+import { WifiOff, Wifi, RefreshCw, CheckCircle } from "lucide-react";
 import { clsx } from "clsx";
+import { useOnlineSync } from "@/lib/hooks/useOnlineSync";
 
 export function OfflineBanner() {
-  const [online,      setOnline]      = useState(true);
-  const [justCameBack, setJustCameBack] = useState(false);
+  const [online,       setOnline]       = useState(true);
+  const [showRestored, setShowRestored] = useState(false);
+  const { syncing, lastResult }         = useOnlineSync();
 
   useEffect(() => {
     const handleOnline = () => {
       setOnline(true);
-      setJustCameBack(true);
-      setTimeout(() => setJustCameBack(false), 3000);
+      setShowRestored(true);
+      setTimeout(() => setShowRestored(false), 4000);
     };
-    const handleOffline = () => { setOnline(false); setJustCameBack(false); };
+    const handleOffline = () => { setOnline(false); setShowRestored(false); };
 
     window.addEventListener("online",  handleOnline);
     window.addEventListener("offline", handleOffline);
@@ -25,19 +27,33 @@ export function OfflineBanner() {
     };
   }, []);
 
-  if (online && !justCameBack) return null;
-
-  return (
-    <div className={clsx(
-      "fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded border font-mono text-xs transition-all",
-      justCameBack
-        ? "border-threat-low/50 bg-threat-low/10 text-threat-low"
-        : "border-threat-high/50 bg-threat-high/10 text-threat-high animate-pulse",
-    )}>
-      {justCameBack
-        ? <><Wifi    className="w-3.5 h-3.5" strokeWidth={1.5} />CONNECTION RESTORED</>
-        : <><WifiOff className="w-3.5 h-3.5" strokeWidth={1.5} />OFFLINE — USING CACHED DATA</>
-      }
+  // Offline
+  if (!online) return (
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded border border-threat-high/50 bg-bg-surface/95 text-threat-high font-mono text-xs animate-pulse backdrop-blur-sm">
+      <WifiOff className="w-3.5 h-3.5" strokeWidth={1.5}/>
+      OFFLINE — using cached data
     </div>
   );
+
+  // Syncing pending missions
+  if (syncing) return (
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded border border-cyan-DEFAULT/50 bg-bg-surface/95 text-cyan-DEFAULT font-mono text-xs backdrop-blur-sm">
+      <RefreshCw className="w-3.5 h-3.5 animate-spin" strokeWidth={1.5}/>
+      Syncing offline missions…
+    </div>
+  );
+
+  // Just restored + synced
+  if (showRestored) return (
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 rounded border border-threat-low/50 bg-bg-surface/95 font-mono text-xs backdrop-blur-sm text-threat-low">
+      {lastResult?.synced ? (
+        <><CheckCircle className="w-3.5 h-3.5" strokeWidth={1.5}/>
+          Connection restored · {lastResult.synced} mission{lastResult.synced !== 1 ? "s" : ""} synced</>
+      ) : (
+        <><Wifi className="w-3.5 h-3.5" strokeWidth={1.5}/>Connection restored</>
+      )}
+    </div>
+  );
+
+  return null;
 }

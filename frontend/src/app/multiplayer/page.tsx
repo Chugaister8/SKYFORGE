@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRoom, RoomInfo } from "@/lib/hooks/useRoom";
 import { useAuthStore } from "@/lib/store/auth.store";
+import { useTelemetryStore } from "@/lib/store/telemetry.store";
 import { clsx } from "clsx";
 import {
   Users, Plus, Radio, Send, LogIn, LogOut,
@@ -15,7 +16,7 @@ const STATE_CLR:Record<string,string>={LOBBY:"text-text-secondary",BRIEFING:"tex
 
 export default function MultiplayerPage(){
   const{user}=useAuthStore();
-  const{session,myMember,isHost,connectToRoom,disconnect,createRoom,fetchRooms,sendChat,sendReady,startMission}=useRoom();
+  const{session,myMember,isHost,connectToRoom,disconnect,createRoom,fetchRooms,sendChat,sendReady,sendPosition,startMission}=useRoom();
   const[rooms,setRooms]=useState<RoomInfo[]>([]);
   const[roomsLoading,setRoomsLoading]=useState(false);
   const[newRoomName,setNewRoomName]=useState("");
@@ -23,6 +24,17 @@ export default function MultiplayerPage(){
   const[creating,setCreating]=useState(false);
   const[joining,setJoining]=useState(false);
   const chatEndRef=useRef<HTMLDivElement>(null);
+
+  const snapshots=useTelemetryStore(s=>s.snapshots);
+
+  // Auto-broadcast our UAV position to room members every 2s
+  useEffect(()=>{
+    if(!session.connected) return;
+    const mySnap=Array.from(snapshots.values()).find(s=>s.status==="IN_MISSION"||s.status==="ONLINE");
+    if(!mySnap||mySnap.lat==null||mySnap.lon==null) return;
+    // auto-broadcast
+    sendPosition({lat:mySnap.lat,lon:mySnap.lon,alt_m:mySnap.altitude_m??150});
+  },[snapshots,session.connected]); // eslint-disable-line
 
   useEffect(()=>{
     chatEndRef.current?.scrollIntoView({behavior:"smooth"});

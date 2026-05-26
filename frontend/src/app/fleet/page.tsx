@@ -64,7 +64,8 @@ export default function FleetPage() {
   const [tab,      setTab]      = useState<typeof STATUS_TABS[number]>("ALL");
   const [showForm, setShowForm] = useState(false);
 
-  const { data: fleet, isLoading }     = useFleet(100, tab !== "ALL" ? tab : undefined);
+  const [limit, setLimit] = useState(24);
+  const { data: fleet, isLoading } = useFleet(limit, tab !== "ALL" ? tab : undefined);
   const { data: stats, isLoading: sl } = useFleetStats();
   const snapshots = useTelemetryStore(s => s.snapshots);
   const deleteUAV = useDeleteUAV();

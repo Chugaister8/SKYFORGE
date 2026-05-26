@@ -49,3 +49,10 @@ async def deep_health():
             "uptime_s": round(time.time() - _start_time, 1),
         },
     )
+
+
+@router.get("/verify/{cert_number}")
+async def verify_cert_public(cert_number: str):
+    """Redirect-style alias for certificate verification."""
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url=f"/api/training/verify/{cert_number}")

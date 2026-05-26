@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { useCourses, useCertificates, useLeaderboard, useStartCourse } from "@/lib/hooks/useTraining";
+import { useCourses, useCertificates, useLeaderboard, useStartCourse, useMyProgress } from "@/lib/hooks/useTraining";
 import { CourseCard }      from "@/components/training/CourseCard";
 import { CourseDetail }    from "@/components/training/CourseDetail";
 import { CertificateCard } from "@/components/training/CertificateCard";
@@ -17,6 +17,8 @@ export default function TrainingPage(){
   const[cat,setCat]=useState<string>("ALL");
   const[selected,setSelected]=useState<string|null>(null);
   const{data:cD,isLoading:cL}=useCourses(cat!=="ALL"?cat:undefined);
+  const{data:myProg}=useMyProgress();
+  const progressMap=Object.fromEntries((myProg?.progress??[]).map(p=>[p.course_id,p]));
   const{data:certD}=useCertificates();
   const{data:lbD}=useLeaderboard();
   const start=useStartCourse();
@@ -25,7 +27,7 @@ export default function TrainingPage(){
   if(selected){
     const course=courses.find(c=>c.id===selected);
     if(course) return(<div className="h-full max-w-2xl mx-auto p-4">
-      <CourseDetail course={course} progress={null} onBack={()=>setSelected(null)} onStart={()=>start.mutate(course.id)}/>
+      <CourseDetail course={course} progress={progressMap[course.id]??null} onBack={()=>setSelected(null)} onStart={()=>start.mutate(course.id)}/>
     </div>);
   }
 

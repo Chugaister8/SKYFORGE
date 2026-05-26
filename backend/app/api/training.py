@@ -324,7 +324,7 @@ async def certify(
         "score":       cert.score,
         "issued_at":   cert.issued_at.isoformat(),
         "expires_at":  cert.expires_at.isoformat(),
-        "verify_url":  f"https://skyforge.app/verify/{cert.cert_number}",
+        "verify_url":  f"/verify/{cert.cert_number}",
     }
 
 
@@ -410,4 +410,45 @@ async def leaderboard(
         "total":  total,
         "limit":  params.limit,
         "offset": params.offset,
+    }
+
+
+# ── Public certificate verification ──────────────────────────────
+
+@router.get("/verify/{cert_number}")
+async def verify_certificate(
+    cert_number: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Public endpoint — no auth required.
+    Verifies a certificate by number and returns its status.
+    """
+    r = await db.execute(
+        select(Certificate, User)
+        .join(User, Certificate.user_id == User.id)
+        .where(Certificate.cert_number == cert_number)
+    )
+    row = r.first()
+    if not row:
+        raise HTTPException(404, "Certificate not found")
+
+    cert, user = row
+    course = _course(cert.course_id)
+
+    now     = datetime.now(timezone.utc)
+    expired = cert.expires_at is not None and cert.expires_at < now
+
+    return {
+        "valid":        cert.valid and not expired,
+        "cert_number":  cert.cert_number,
+        "holder":       user.username,
+        "course_id":    cert.course_id,
+        "course_title": course["title"] if course else cert.course_id,
+        "score":        cert.score,
+        "grade":        cert.grade,
+        "issued_at":    cert.issued_at.isoformat(),
+        "expires_at":   cert.expires_at.isoformat() if cert.expires_at else None,
+        "expired":      expired,
+        "status":       "EXPIRED" if expired else ("REVOKED" if not cert.valid else "VALID"),
     }
