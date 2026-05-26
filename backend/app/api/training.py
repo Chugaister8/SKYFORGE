@@ -439,7 +439,12 @@ async def verify_certificate(
     course = _course(cert.course_id)
 
     now     = datetime.now(timezone.utc)
-    expired = cert.expires_at is not None and cert.expires_at < now
+    # SQLite returns naive datetimes — make aware before comparing
+    exp_at = cert.expires_at
+    if exp_at is not None and exp_at.tzinfo is None:
+        from datetime import timezone as tz
+        exp_at = exp_at.replace(tzinfo=tz.utc)
+    expired = exp_at is not None and exp_at < now
 
     return {
         "valid":        cert.valid and not expired,

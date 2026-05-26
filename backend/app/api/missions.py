@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from datetime import datetime
 from pydantic import BaseModel, field_validator
 from typing import Any
 from app.core.database import get_db
@@ -80,8 +81,9 @@ class MissionResponse(BaseModel):
     aar_data:     dict | None
     duration_s:   float
     score:        int
-    created_at:   str
-    model_config  = {"from_attributes": True}
+    created_at:   datetime
+
+    model_config = {"from_attributes": True}
 
 class FlightLogEvent(BaseModel):
     t:       float                  # mission time seconds
