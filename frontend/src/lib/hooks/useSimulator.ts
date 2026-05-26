@@ -1,9 +1,9 @@
 /**
- * Simulator hook — mission-aware.
- * - Loads waypoints from a mission
- * - Runs autopilot toward each waypoint
- * - Writes events/track to flight log
- * - Detects SAM threats from mission sites
+ * Simulator hook — mission-aware, EW-integrated.
+ * Fixes:
+ *  - Position drift: uses mToLon(lat) not constant
+ *  - EW state sent to /api/sim/step
+ *  - Autopilot uses corrected bearing
  */
 import { useState, useRef, useCallback, useEffect } from "react";
 import { api } from "@/lib/api";
@@ -19,26 +19,24 @@ export interface SimState {
   throttle:number; actual_throttle:number; fuel_remaining:number;
   airspeed_ms:number; groundspeed_ms:number; altitude_m:number;
   sim_time_s:number;
-  // World position (lat/lon derived)
   lat:number; lon:number;
 }
 
 export interface SimControl {
   roll_cmd:number; pitch_cmd:number; yaw_cmd:number; throttle_cmd:number;
-  target_altitude_m?:number; target_heading_deg?:number;
 }
 
 export interface EWState {
-  gps_effect:string; gps_accuracy_m:number; gps_drift_ms:number;
+  gps_effect:string;    gps_accuracy_m:number;  gps_drift_ms:number;
   spoofed_lat:number|null; spoofed_lon:number|null;
-  datalink_effect:string; link_quality:number; packet_loss_pct:number;
-  latency_ms:number; radar_warning:boolean; radar_lock:boolean; threat_level:string;
+  datalink_effect:string; link_quality:number;    packet_loss_pct:number;
+  latency_ms:number;    radar_warning:boolean;  radar_lock:boolean;
+  threat_level:string;
 }
 
 export interface WaypointStatus {
-  index:   number;
-  reached: boolean;
-  dist_m:  number;
+  index:  number;
+  dist_m: number;
 }
 
 const DEFAULT_STATE: SimState = {
@@ -55,125 +53,113 @@ const DEFAULT_EW: EWState = {
   latency_ms:50,radar_warning:false,radar_lock:false,threat_level:"NONE",
 };
 
-// Rough conversion: metres to degrees lat/lon
-const M_TO_LAT = 1 / 111320;
-const mToLon = (lat: number) => 1 / (111320 * Math.cos(lat * Math.PI / 180));
+// ── Geo helpers ────────────────────────────────────────────────
+const EARTH_R    = 6_371_000.0;
+const M_TO_LAT   = 1 / 111_320.0;
+const mToLon     = (lat: number) => 1 / (111_320.0 * Math.cos(lat * Math.PI / 180));
 
-const haversine = (lat1:number,lon1:number,lat2:number,lon2:number) => {
-  const R=6371000, p=Math.PI/180;
-  const a=Math.sin((lat2-lat1)*p/2)**2+Math.cos(lat1*p)*Math.cos(lat2*p)*Math.sin((lon2-lon1)*p/2)**2;
-  return 2*R*Math.asin(Math.sqrt(a));
-};
+function haversine(lat1:number,lon1:number,lat2:number,lon2:number): number {
+  const p = Math.PI/180;
+  const a = Math.sin((lat2-lat1)*p/2)**2
+          + Math.cos(lat1*p)*Math.cos(lat2*p)*Math.sin((lon2-lon1)*p/2)**2;
+  return 2*EARTH_R*Math.asin(Math.sqrt(Math.max(0,a)));
+}
+
+function bearing(lat1:number,lon1:number,lat2:number,lon2:number): number {
+  const p   = Math.PI/180;
+  const dLon = (lon2-lon1)*p;
+  const x   = Math.sin(dLon)*Math.cos(lat2*p);
+  const y   = Math.cos(lat1*p)*Math.sin(lat2*p)
+             - Math.sin(lat1*p)*Math.cos(lat2*p)*Math.cos(dLon);
+  return Math.atan2(x,y); // radians
+}
+
+// ── EW state → API payload ─────────────────────────────────────
+function ewToPayload(ew: EWState) {
+  return {
+    gps_denied:         ew.gps_effect === "DENIED",
+    gps_accuracy_m:     ew.gps_accuracy_m,
+    link_quality:       ew.link_quality,
+    datalink_denied:    ew.datalink_effect === "DENIED",
+    control_latency_ms: ew.latency_ms,
+    nav_drift_ms:       ew.gps_drift_ms,
+  };
+}
 
 export function useSimulator(libraryId: string, mission?: SavedMission | null) {
   const token = useAuthStore(s => s.accessToken);
 
-  const [state,    setState]    = useState<SimState>(DEFAULT_STATE);
-  const [ewState,  setEwState]  = useState<EWState>(DEFAULT_EW);
-  const [running,  setRunning]  = useState(false);
-  const [wind,     setWindState]= useState({speed:0,dir:0,turb:0});
-  const [wpStatus, setWpStatus] = useState<WaypointStatus>({index:0,reached:false,dist_m:999});
-  const [missionComplete, setMissionComplete] = useState(false);
+  const [state,          setState]     = useState<SimState>(DEFAULT_STATE);
+  const [ewState,        setEwState]   = useState<EWState>(DEFAULT_EW);
+  const [running,        setRunning]   = useState(false);
+  const [wind,           setWindState] = useState({speed:0,dir:0,turb:0});
+  const [wpStatus,       setWpStatus]  = useState<WaypointStatus>({index:0,dist_m:999});
+  const [missionComplete,setMissionComplete] = useState(false);
 
+  // Refs — avoid stale closures in setInterval
   const stateRef   = useRef<SimState>(DEFAULT_STATE);
   const ctrlRef    = useRef<SimControl>({roll_cmd:0,pitch_cmd:0,yaw_cmd:0,throttle_cmd:0});
   const windRef    = useRef({speed:0,dir:0,turb:0});
+  const ewRef      = useRef<EWState>(DEFAULT_EW);
   const tokenRef   = useRef(token);
   const libRef     = useRef(libraryId);
   const loopRef    = useRef<NodeJS.Timeout|null>(null);
-  const wpIndexRef = useRef(0);
-  const trackTickRef = useRef(0);
-  const ewRef      = useRef<EWState>(DEFAULT_EW);
+  const wpIdxRef   = useRef(0);
+  const trackTick  = useRef(0);
 
-  const flightLog = useFlightLog(mission?.id ?? null);
+  const flightLog  = useFlightLog(mission?.id ?? null);
 
-  useEffect(() => { tokenRef.current   = token;     }, [token]);
-  useEffect(() => { libRef.current     = libraryId; }, [libraryId]);
-  useEffect(() => { stateRef.current   = state;     }, [state]);
-  useEffect(() => { ewRef.current      = ewState;   }, [ewState]);
+  // Keep refs current
+  useEffect(()=>{ tokenRef.current = token; },      [token]);
+  useEffect(()=>{ libRef.current   = libraryId; },  [libraryId]);
+  useEffect(()=>{ stateRef.current = state; },      [state]);
+  useEffect(()=>{ ewRef.current    = ewState; },    [ewState]);
 
-  // ── Autopilot: steer toward next waypoint ────────────────────
+  // ── Autopilot ─────────────────────────────────────────────────
   const applyAutopilot = useCallback(() => {
-    const waypoints = mission?.waypoints ?? [];
-    if (!waypoints.length || wpIndexRef.current >= waypoints.length) return;
+    const wps = mission?.waypoints ?? [];
+    if (!wps.length || wpIdxRef.current >= wps.length) return;
 
-    const wp      = waypoints[wpIndexRef.current];
-    const cur     = stateRef.current;
-    const dist    = haversine(cur.lat, cur.lon, wp.lat, wp.lon);
+    const wp    = wps[wpIdxRef.current];
+    const cur   = stateRef.current;
+    const dist  = haversine(cur.lat, cur.lon, wp.lat, wp.lon);
     const altDiff = (wp.alt_m ?? 150) - cur.altitude_m;
 
-    // Bearing to waypoint
-    const p    = Math.PI / 180;
-    const dLon = (wp.lon - cur.lon) * p;
-    const x    = Math.sin(dLon) * Math.cos(wp.lat * p);
-    const y    = Math.cos(cur.lat * p) * Math.sin(wp.lat * p)
-               - Math.sin(cur.lat * p) * Math.cos(wp.lat * p) * Math.cos(dLon);
-    const targetHeading = (Math.atan2(x, y) * 180 / Math.PI + 360) % 360;
+    const bear  = bearing(cur.lat, cur.lon, wp.lat, wp.lon); // radians
+    const headingErr = bear - cur.yaw;
 
     ctrlRef.current = {
-      roll_cmd:           Math.max(-0.3, Math.min(0.3, (targetHeading - cur.yaw * 180 / Math.PI) / 90)),
-      pitch_cmd:          Math.max(-0.2, Math.min(0.2, altDiff / 100)),
-      yaw_cmd:            0,
-      throttle_cmd:       dist > 20 ? 0.65 : 0.3,
-      target_altitude_m:  wp.alt_m ?? 150,
-      target_heading_deg: targetHeading,
+      roll_cmd:     Math.max(-0.4, Math.min(0.4, headingErr * 0.5)),
+      pitch_cmd:    Math.max(-0.2, Math.min(0.2, altDiff / 100)),
+      yaw_cmd:      0,
+      throttle_cmd: dist > 20 ? 0.65 : 0.3,
     };
 
-    // Waypoint reached threshold: 30m
     if (dist < 30) {
       flightLog.logEvent("WAYPOINT_REACHED", {
-        index: wpIndexRef.current,
-        wp_id: wp.id,
-        alt_m: cur.altitude_m,
-        speed_ms: cur.groundspeed_ms,
+        index: wpIdxRef.current, wp_id: wp.id,
+        alt_m: cur.altitude_m, speed_ms: cur.groundspeed_ms,
       });
-      wpIndexRef.current += 1;
-      if (wpIndexRef.current >= waypoints.length) {
+      wpIdxRef.current += 1;
+      if (wpIdxRef.current >= wps.length) {
         setMissionComplete(true);
-        flightLog.logEvent("MISSION_COMPLETE", { total_wp: waypoints.length });
+        flightLog.logEvent("MISSION_COMPLETE", { total_wp: wps.length });
       }
     }
-
-    setWpStatus({ index: wpIndexRef.current, reached: dist < 30, dist_m: dist });
+    setWpStatus({ index: wpIdxRef.current, dist_m: dist });
   }, [mission, flightLog]);
 
-  // ── Detect threats from mission sites ────────────────────────
-  const checkThreats = useCallback(() => {
-    const sites = mission?.threat_sites ?? [];
-    const cur   = stateRef.current;
-    const ew    = ewRef.current;
-
-    if (ew.radar_warning && !ew.radar_lock) {
-      // Already tracking — check lock
-    }
-    if (ew.radar_lock) {
-      flightLog.logEvent("THREAT_LOCKED", {
-        threat_level: ew.threat_level,
-        lat: cur.lat, lon: cur.lon, alt_m: cur.altitude_m,
-      });
-    }
-  }, [mission, flightLog]);
-
-  // ── Update derived lat/lon from physics state ─────────────────
-  const updatePosition = useCallback((physState: Omit<SimState,"lat"|"lon">) => {
-    const prev = stateRef.current;
-    const dt   = 0.05;
-    const newLat = prev.lat + physState.vy * dt * M_TO_LAT;
-    const newLon = prev.lon + physState.vx * dt * mToLon(prev.lat);
-    return { ...physState, lat: newLat, lon: newLon };
-  }, []);
-
-  // ── Physics step ─────────────────────────────────────────────
+  // ── Physics step ──────────────────────────────────────────────
   const step = useCallback(async () => {
     const t = tokenRef.current;
     if (!t) return;
 
-    // Autopilot
     if (mission?.waypoints?.length) applyAutopilot();
 
     try {
       const res = await api.post<{state:Omit<SimState,"lat"|"lon">; diagnostics:Record<string,unknown>}>(
-        "/sim/step", {
+        "/sim/step",
+        {
           library_id:   libRef.current,
           state:        stateRef.current,
           control:      ctrlRef.current,
@@ -181,16 +167,27 @@ export function useSimulator(libraryId: string, mission?: SavedMission | null) {
           wind_speed:   windRef.current.speed,
           wind_dir_deg: windRef.current.dir,
           turbulence:   windRef.current.turb,
-        }, t,
+          // ── EW state now sent to backend ──────────────────
+          ew: ewToPayload(ewRef.current),
+        },
+        t,
       );
 
-      const withPos = updatePosition(res.state);
+      // Update lat/lon from vx/vy with latitude-corrected lon conversion
+      const prev = stateRef.current;
+      const dt   = 0.05;
+
+      // vx = east component (m/s), vy = north component (m/s)
+      const newLat = prev.lat + res.state.vy * dt * M_TO_LAT;
+      const newLon = prev.lon + res.state.vx * dt * mToLon(prev.lat); // ← fix: use prev.lat
+
+      const withPos: SimState = { ...res.state, lat: newLat, lon: newLon };
       stateRef.current = withPos;
       setState(withPos);
 
-      // Track point every 2s (40 steps @ 20Hz)
-      trackTickRef.current += 1;
-      if (trackTickRef.current % 40 === 0) {
+      // Track snapshot every 2s (40 × 50ms)
+      trackTick.current += 1;
+      if (trackTick.current % 40 === 0) {
         flightLog.logTrack({
           lat:         withPos.lat,
           lon:         withPos.lon,
@@ -200,25 +197,24 @@ export function useSimulator(libraryId: string, mission?: SavedMission | null) {
           battery_pct: withPos.fuel_remaining * 100,
           ew_threat:   ewRef.current.threat_level,
         });
-        checkThreats();
       }
 
-      // Battery warning
-      if (withPos.fuel_remaining < 0.2 && withPos.fuel_remaining > 0.19) {
+      // Battery warning (once, near 20%)
+      if (withPos.fuel_remaining < 0.20 && withPos.fuel_remaining > 0.195) {
         flightLog.logEvent("BATTERY_LOW", { battery_pct: withPos.fuel_remaining * 100 });
       }
     } catch {}
-  }, [applyAutopilot, checkThreats, updatePosition, flightLog, mission]);
+  }, [applyAutopilot, flightLog, mission]);
 
   const start = useCallback(() => {
     setRunning(true);
     setMissionComplete(false);
-    wpIndexRef.current = 0;
-    trackTickRef.current = 0;
+    wpIdxRef.current  = 0;
+    trackTick.current = 0;
     flightLog.start();
     flightLog.logEvent("TAKEOFF", {
-      lat:   stateRef.current.lat,
-      lon:   stateRef.current.lon,
+      lat: stateRef.current.lat,
+      lon: stateRef.current.lon,
       alt_m: stateRef.current.altitude_m,
     });
     loopRef.current = setInterval(step, 50); // 20Hz
@@ -228,8 +224,7 @@ export function useSimulator(libraryId: string, mission?: SavedMission | null) {
     setRunning(false);
     if (loopRef.current) { clearInterval(loopRef.current); loopRef.current = null; }
     flightLog.logEvent("LAND", {
-      lat:   stateRef.current.lat,
-      lon:   stateRef.current.lon,
+      lat: stateRef.current.lat, lon: stateRef.current.lon,
       alt_m: stateRef.current.altitude_m,
     });
     await flightLog.stop();
@@ -238,7 +233,6 @@ export function useSimulator(libraryId: string, mission?: SavedMission | null) {
   const reset = useCallback(() => {
     stop();
     const def = { ...DEFAULT_STATE };
-    // Start at mission origin if available
     if (mission?.waypoints?.[0]) {
       def.lat = mission.waypoints[0].lat;
       def.lon = mission.waypoints[0].lon;
@@ -246,7 +240,7 @@ export function useSimulator(libraryId: string, mission?: SavedMission | null) {
     stateRef.current = def;
     setState(def);
     setEwState({ ...DEFAULT_EW });
-    wpIndexRef.current = 0;
+    wpIdxRef.current = 0;
     setMissionComplete(false);
   }, [stop, mission]);
 
@@ -261,7 +255,6 @@ export function useSimulator(libraryId: string, mission?: SavedMission | null) {
   const updateEW = useCallback((ew: Partial<EWState>) => {
     setEwState(prev => {
       const next = { ...prev, ...ew };
-      // Log EW state transitions
       if (ew.gps_effect === "DENIED" && prev.gps_effect !== "DENIED") {
         flightLog.logEvent("EW_GPS_DENIED", { accuracy_m: ew.gps_accuracy_m });
       }
@@ -270,6 +263,9 @@ export function useSimulator(libraryId: string, mission?: SavedMission | null) {
       }
       if (ew.radar_warning && !prev.radar_warning) {
         flightLog.logEvent("THREAT_DETECTED", { threat_level: ew.threat_level });
+      }
+      if (ew.datalink_effect === "DENIED" && prev.datalink_effect !== "DENIED") {
+        flightLog.logEvent("EW_LINK_DENIED", {});
       }
       return next;
     });

@@ -1,9 +1,10 @@
 """
-Multiplayer room REST API + WebSocket handler.
-Secure: token in first WS message, not URL.
+Multiplayer room REST + WebSocket.
+Fixes: server-side heartbeat (ping every 30s), auth in first message.
 """
 import json
 import time
+import asyncio
 import structlog
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Depends, Request
 from pydantic import BaseModel, field_validator
@@ -20,7 +21,7 @@ router   = APIRouter()
 settings = get_settings()
 
 
-# ── Schemas ───────────────────────────────────────────────────────
+# ── Schemas ────────────────────────────────────────────────────────
 
 class CreateRoomRequest(BaseModel):
     name:       str
@@ -68,7 +69,6 @@ async def create_room(
         )
     except RuntimeError as e:
         raise HTTPException(503, str(e))
-
     if payload.mission_id:
         room.mission_id = payload.mission_id
     return {"room_id": room_id, "room": room.to_dict()}
@@ -97,22 +97,19 @@ async def close_room(room_id: str, current_user: User = Depends(get_current_user
 # ── WebSocket ─────────────────────────────────────────────────────
 
 async def _auth_room_ws(websocket: WebSocket) -> tuple[str, str] | None:
-    """
-    Returns (user_id, username) or None on auth failure.
-    Token passed in first message.
-    """
+    """Auth via first message. Returns (user_id, username) or None."""
     await websocket.accept()
     try:
-        raw     = await __import__("asyncio").wait_for(websocket.receive_text(), timeout=10.0)
+        raw     = await asyncio.wait_for(websocket.receive_text(), timeout=10.0)
         msg     = json.loads(raw)
         if msg.get("type") != "auth":
             await websocket.send_text(json.dumps({"type":"error","msg":"First message must be auth"}))
-            await websocket.close(code=4001); return None
-
-        payload  = decode_token(msg.get("token",""))
+            await websocket.close(code=4001)
+            return None
+        payload = decode_token(msg.get("token",""))
         if payload.get("type") != "access":
-            await websocket.close(code=4001); return None
-
+            await websocket.close(code=4001)
+            return None
         return payload["sub"], payload.get("username", payload["sub"][:8])
     except Exception:
         try: await websocket.close(code=4001)
@@ -131,20 +128,33 @@ async def room_ws(room_id: str, websocket: WebSocket):
     room = room_manager.get_room(room_id)
     if not room:
         await websocket.send_text(json.dumps({"type":"error","msg":"Room not found"}))
-        await websocket.close(code=4004); return
+        await websocket.close(code=4004)
+        return
 
     room = await room_manager.join(room_id, user_id, username, websocket)
     if not room:
         await websocket.send_text(json.dumps({"type":"error","msg":"Room full or closed"}))
-        await websocket.close(); return
+        await websocket.close()
+        return
 
     await websocket.send_text(json.dumps({
-        "type":     "ROOM_JOINED",
-        "room":     room.to_dict(),
-        "your_id":  user_id,
-        "chat_log": room.chat_log[-50:],
+        "type":    "ROOM_JOINED",
+        "room":    room.to_dict(),
+        "your_id": user_id,
+        "chat_log":room.chat_log[-50:],
     }))
     logger.info("room.ws.connected", room_id=room_id, user_id=user_id)
+
+    # ── Server-side heartbeat ─────────────────────────────────
+    async def heartbeat_loop():
+        while True:
+            await asyncio.sleep(settings.ws_heartbeat_s)
+            try:
+                await websocket.send_text(json.dumps({"type":"ping","ts":time.time()}))
+            except Exception:
+                break
+
+    hb_task = asyncio.create_task(heartbeat_loop())
 
     try:
         while True:
@@ -157,6 +167,8 @@ async def room_ws(room_id: str, websocket: WebSocket):
             match msg.get("type",""):
                 case "ping":
                     await websocket.send_text(json.dumps({"type":"pong"}))
+                case "pong":
+                    pass  # heartbeat acknowledged
 
                 case "CHAT":
                     text = str(msg.get("text",""))[:500].strip()
@@ -224,5 +236,6 @@ async def room_ws(room_id: str, websocket: WebSocket):
     except Exception as e:
         logger.error("room.ws.error", room_id=room_id, user_id=user_id, error=str(e))
     finally:
+        hb_task.cancel()
         await room_manager.leave(room_id, user_id)
         logger.info("room.ws.disconnected", room_id=room_id, user_id=user_id)

@@ -14,7 +14,7 @@ const GRADE_CFG:Record<string,{color:string;bg:string;border:string}>={
 
 interface Props{
   courseId:string; moduleId:string; moduleTitle:string; passScore:number;
-  onBack:()=>void; onComplete:(score:number,grade:string)=>void;
+  onBack:()=>void; onComplete:(score:number,grade:string,timeSpentS:number)=>void;
 }
 
 export function QuizEngine({courseId,moduleId,moduleTitle,passScore,onBack,onComplete}:Props){

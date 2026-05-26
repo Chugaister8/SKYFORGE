@@ -177,6 +177,14 @@ class RoomManager:
         data:    dict,
         exclude: str | None = None,
     ) -> None:
+        # Refresh Redis TTL on activity
+        room = self._rooms.get(room_id)
+        if room:
+            try:
+                import asyncio
+                asyncio.create_task(rp.save_room_meta(room_id, room.meta_dict()))
+            except Exception:
+                pass
         room = self._rooms.get(room_id)
         if not room:
             return

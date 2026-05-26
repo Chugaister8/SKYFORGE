@@ -240,3 +240,71 @@ async def get_me(current_user: User = Depends(get_current_user)) -> UserResponse
         id=current_user.id, username=current_user.username,
         email=current_user.email, role=current_user.role, status=current_user.status,
     )
+
+
+# ── Profile update ────────────────────────────────────────────────
+
+class ProfileUpdate(BaseModel):
+    username:     str | None = None
+    full_name:    str | None = None
+    current_password: str | None = None
+    new_password:     str | None = None
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, v: str | None) -> str | None:
+        if v is None: return v
+        v = v.strip()
+        if len(v) < 3 or len(v) > 32:
+            raise ValueError("Username must be 3–32 characters")
+        import re
+        if not re.match(r"^[a-zA-Z0-9_\-\.]+$", v):
+            raise ValueError("Invalid characters in username")
+        return v
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, v: str | None) -> str | None:
+        if v is None: return v
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
+
+
+@router.patch("/profile")
+async def update_profile(
+    payload:      ProfileUpdate,
+    current_user: User         = Depends(get_current_user),
+    db:           AsyncSession = Depends(get_db),
+):
+    """Update username, full name, or password."""
+    # Password change
+    if payload.new_password:
+        if not payload.current_password:
+            raise HTTPException(400, "Current password required to set new password")
+        if not verify_password(payload.current_password, current_user.hashed_password):
+            raise HTTPException(400, "Current password incorrect")
+        current_user.hashed_password = hash_password(payload.new_password)
+
+    # Username change — check uniqueness
+    if payload.username and payload.username != current_user.username:
+        existing = await db.execute(
+            select(User).where(User.username == payload.username, User.id != current_user.id)
+        )
+        if existing.scalar_one_or_none():
+            raise HTTPException(409, "Username already taken")
+        current_user.username = payload.username
+
+    if payload.full_name is not None:
+        current_user.full_name = payload.full_name
+
+    await db.commit()
+    await db.refresh(current_user)
+    logger.info("auth.profile_updated", user_id=current_user.id)
+    return UserResponse(
+        id       = current_user.id,
+        username = current_user.username,
+        email    = current_user.email,
+        role     = current_user.role,
+        status   = current_user.status,
+    )

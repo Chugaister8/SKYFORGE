@@ -74,9 +74,18 @@ function logToAAREvents(rawEvents: any[]): AAREvent[] {
 
   return rawEvents.map(e => {
     const cfg = TYPE_MAP[e.type] ?? {
-      title: () => e.type,
-      detail: () => JSON.stringify(e.data ?? {}),
-      severity: "info" as const,
+      // Fallback: render any unknown event type gracefully
+      title:    () => e.type.replace(/_/g, " "),
+      detail:   () => Object.entries(e.data ?? {})
+                        .map(([k,v]) => `${k}: ${v}`)
+                        .join(" · ") || "—",
+      severity: (e.type.includes("DENIED") || e.type.includes("HIT")
+                  ? "danger"
+                  : e.type.includes("WARN") || e.type.includes("LOW")
+                  ? "warning"
+                  : e.type.includes("RESTORED") || e.type.includes("REACHED") || e.type.includes("COMPLETE")
+                  ? "success"
+                  : "info") as AAREvent["severity"],
       type: "INFO" as const,
     };
     return {
